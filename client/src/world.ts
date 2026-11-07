@@ -265,12 +265,19 @@ export class World {
         const ox = cx * CHUNK, oy = cy * CHUNK;
         const fx0 = cx * CPC, fy0 = cy * CPC;
         if (this.map.tiles) {
-          // tile-based map: every cell is a painted tile from the asset sheet
+          // continuous grass texture (no grid), then path / dirt / field tiles on top
+          const gp = patterns[G.Grass];
+          if (gp) {
+            gp.setTransform(new DOMMatrix([1 / R, 0, 0, 1 / R, -ox * TILE, -oy * TILE]));
+            ctx.fillStyle = gp;
+            ctx.fillRect(0, 0, CHUNK_PX, CHUNK_PX);
+          }
           for (let y = 0; y < CHUNK; y++)
             for (let x = 0; x < CHUNK; x++) {
               const tx = ox + x, ty = oy + y;
               if (tx >= this.map.w || ty >= this.map.h) continue;
               const [name, flip] = this.map.tiles[ty * this.map.w + tx].split('|');
+              if (gp && name.startsWith('gt_grass')) continue;
               this.drawTile(ctx, name, x * TILE, y * TILE, flip);
             }
           this.decorateChunk(ctx, ox, oy);

@@ -29,6 +29,9 @@ interface Drop { x: number; y: number; vx: number; vy: number; t: number }
 interface Fly { x: number; y: number; hx: number; hy: number; ph: number; c: string }
 interface Leaf { x: number; y: number; vx: number; t: number; life: number; c: string }
 interface Glint { x: number; y: number; t: number; life: number }
+interface Mote { x: number; y: number; ph: number; sp: number; r: number }
+interface Puff { x: number; y: number; vx: number; vy: number; t: number; life: number; r: number; c: string }
+interface Bird { x: number; y: number; vx: number; ph: number }
 
 const FLY_COLORS = ['#fff6d8', '#ffd84a', '#f59fd0', '#9fd4ff', '#ffb35c'];
 const LEAF_COLORS = ['#7fb24a', '#a6c94a', '#d9a441', '#c9703a'];
@@ -40,6 +43,13 @@ export class Effects {
   private glints: Glint[] = [];
   private flies: Fly[] = [];
   private leaves: Leaf[] = [];
+  private motes: Mote[] = [];
+  private puffs: Puff[] = [];
+  private birds: Bird[] = [];
+  private nextBird = 6;
+  private nextSmoke = 0;
+  private chimney: { x: number; y: number } | null = null;
+  private vignette: HTMLCanvasElement | null = null;
   private nextRipple = 0;
   private nextFish = 3;
   private nextLeaf = 0;
@@ -62,6 +72,10 @@ export class Effects {
       this.flies.push({ x: h.x, y: h.y - 16, hx: h.x, hy: h.y - 16, ph: rnd() * 10, c: FLY_COLORS[i % FLY_COLORS.length] });
     }
     for (const o of world.objects) if (o.name.startsWith('tree')) this.trees.push({ x: o.x, y: o.y, h: o.b - o.t });
+    const house = world.objects.find((o) => o.name === 'house');
+    if (house) this.chimney = { x: house.x + (house.r - house.l) * 0.22, y: house.t + (house.b - house.t) * 0.12 };
+    for (let i = 0; i < 40; i++)
+      this.motes.push({ x: rnd() * world.pxW, y: rnd() * world.pxH, ph: rnd() * 10, sp: 3 + rnd() * 6, r: rnd() < 0.3 ? 2 : 1 });
   }
 
   private cloudCanvas: HTMLCanvasElement | null = null;
@@ -90,7 +104,46 @@ export class Effects {
     return [this.water[i], this.water[i + 1]];
   }
 
+  /** Little burst when the player works a tile or walks (dust, soil, water). */
+  burst(x: number, y: number, kind: 'dust' | 'soil' | 'water' | 'leaf', n = 6) {
+    const c = kind === 'water' ? '#bfe6ff' : kind === 'soil' ? '#7a4a2a' : kind === 'leaf' ? '#8cc04a' : '#d9c39a';
+    for (let i = 0; i < n && this.puffs.length < 80; i++)
+      this.puffs.push({ x: x + (rnd() - 0.5) * 8, y, vx: (rnd() - 0.5) * (kind === 'dust' ? 14 : 40),
+        vy: kind === 'dust' ? -4 - rnd() * 6 : -20 - rnd() * 30, t: 0, life: kind === 'dust' ? 0.45 : 0.6,
+        r: kind === 'dust' ? 2 + rnd() * 2 : 1.2, c });
+  }
+
   update(dt: number) {
+    // floating pollen / light motes
+    for (const m of this.motes) {
+      m.ph += dt;
+      m.y -= m.sp * dt * 0.4; m.x += Math.sin(m.ph * 0.7) * 6 * dt;
+      if (m.y < -4) { m.y = this.world.pxH + 4; m.x = rnd() * this.world.pxW; }
+    }
+    // chimney smoke
+    if (this.chimney && (this.nextSmoke -= dt) <= 0) {
+      this.nextSmoke = 0.45;
+      this.puffs.push({ x: this.chimney.x, y: this.chimney.y, vx: 4 + rnd() * 3, vy: -9 - rnd() * 4, t: 0, life: 3.2, r: 3, c: 'smoke' });
+    }
+    for (let i = this.puffs.length - 1; i >= 0; i--) {
+      const p = this.puffs[i];
+      p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt;
+      if (p.c !== 'smoke' && p.r < 2) p.vy += 120 * dt;
+      if (p.c === 'smoke') p.r += dt * 2.2;
+      if (p.t > p.life) this.puffs.splice(i, 1);
+    }
+    // birds crossing the sky (their shadows glide over the farm)
+    if ((this.nextBird -= dt) <= 0) {
+      this.nextBird = 10 + rnd() * 12;
+      const y = 40 + rnd() * (this.world.pxH - 80);
+      for (let k = 0; k < 3; k++) this.birds.push({ x: -40 - k * 18, y: y + (k % 2) * 14, vx: 55 + rnd() * 10, ph: rnd() * 6 });
+    }
+    for (let i = this.birds.length - 1; i >= 0; i--) {
+      const b = this.birds[i];
+      b.x += b.vx * dt; b.ph += dt * 9;
+      if (b.x > this.world.pxW + 60) this.birds.splice(i, 1);
+    }
+
     // ripples from insects / drops on the surface
     if ((this.nextRipple -= dt) <= 0) {
       this.nextRipple = 0.35 + rnd() * 0.5;
@@ -195,6 +248,35 @@ export class Effects {
       ctx.fillStyle = '#3a2a1e';
       ctx.fillRect(x, y - 1, 1, 2);
     }
+    // dust, soil, water and smoke puffs
+    for (const p of this.puffs) {
+      const k = p.t / p.life;
+      if (p.c === 'smoke') {
+        ctx.fillStyle = `rgba(235,235,240,${0.45 * (1 - k)})`;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+      } else {
+        ctx.globalAlpha = 1 - k;
+        ctx.fillStyle = p.c;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r * (1 + k), 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    }
+    // floating pollen catching the light
+    for (const m of this.motes) {
+      if (m.x < vx || m.x > vx + vw || m.y < vy || m.y > vy + vh) continue;
+      const a = 0.35 + 0.35 * Math.sin(m.ph * 2.3);
+      ctx.fillStyle = `rgba(255,248,200,${a})`;
+      ctx.fillRect(m.x, m.y, m.r, m.r);
+    }
+    // bird shadows
+    ctx.fillStyle = 'rgba(20,30,20,0.22)';
+    for (const b of this.birds) {
+      if (b.x < vx - 20 || b.x > vx + vw + 20 || b.y < vy - 20 || b.y > vy + vh + 20) continue;
+      const w = 4 + Math.abs(Math.sin(b.ph)) * 3;
+      ctx.beginPath();
+      ctx.moveTo(b.x - w, b.y - 1); ctx.lineTo(b.x, b.y + 1); ctx.lineTo(b.x + w, b.y - 1); ctx.lineTo(b.x, b.y);
+      ctx.closePath(); ctx.fill();
+    }
     // soft cloud shadows sliding over the farm (pre-rendered blurry blob)
     const cloud = this.cloud();
     for (let i = 0; i < 3; i++) {
@@ -205,4 +287,36 @@ export class Effects {
       ctx.drawImage(cloud, Math.round(cx), Math.round(cy));
     }
   }
+}
+
+/** Warm sunlight + soft vignette over the whole screen (screen space). */
+let vig: HTMLCanvasElement | null = null;
+export function drawScreenLight(ctx: Ctx, w: number, h: number, t: number) {
+  if (!vig || vig.width !== w || vig.height !== h) {
+    vig = document.createElement('canvas');
+    vig.width = w; vig.height = h;
+    const g = vig.getContext('2d')!;
+    const r = g.createRadialGradient(w / 2, h * 0.45, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.75);
+    r.addColorStop(0, 'rgba(0,0,0,0)');
+    r.addColorStop(1, 'rgba(30,20,0,0.32)');
+    g.fillStyle = r; g.fillRect(0, 0, w, h);
+    const sun = g.createLinearGradient(0, 0, w * 0.6, h * 0.8);
+    sun.addColorStop(0, 'rgba(255,236,170,0.20)');
+    sun.addColorStop(1, 'rgba(255,236,170,0)');
+    g.fillStyle = sun; g.fillRect(0, 0, w, h);
+  }
+  ctx.drawImage(vig, 0, 0);
+  // slow sun rays from the top-left corner
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 3; i++) {
+    const a = 0.035 + 0.02 * Math.sin(t * 0.4 + i * 2);
+    ctx.fillStyle = `rgba(255,240,190,${a})`;
+    ctx.beginPath();
+    const x0 = w * (0.05 + i * 0.18);
+    ctx.moveTo(x0, 0); ctx.lineTo(x0 + w * 0.08, 0);
+    ctx.lineTo(x0 + w * 0.42, h); ctx.lineTo(x0 + w * 0.22, h);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
 }

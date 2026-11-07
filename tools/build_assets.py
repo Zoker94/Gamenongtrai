@@ -17,7 +17,7 @@ OUT_DIR = os.path.join(ROOT, 'client', 'public', 'assets')
 T = 32
 # Atlas pixel density: every sprite is stored at RES x its in-game size, so a
 # 32px tile has 64x64 real pixels and stays sharp when zoomed in.
-RES = 2
+RES = 3
 
 sheets = {
     's1': Image.open(os.path.join(ROOT, 'assets/source/sheet1.png')).convert('RGB'),
@@ -258,6 +258,19 @@ S4_TILES = {
 }
 
 
+def key_grass(im):
+    """Make the flat grass of a path/edge tile transparent (soft edge), keeping
+    the dirt and the grass tufts that overhang it."""
+    px = im.load()
+    for y in range(im.height):
+        for x in range(im.width):
+            r_, g_, b_, a_ = px[x, y]
+            d = abs(r_ - 152) + abs(g_ - 173) + abs(b_ - 46)
+            if g_ > r_ + 4 and g_ > b_ + 60 and d < 70:
+                px[x, y] = (r_, g_, b_, 0 if d < 45 else int(255 * (d - 45) / 25))
+    return im
+
+
 def s4_tiles():
     out = {}
     for name, (panel, c, r) in S4_TILES.items():
@@ -265,7 +278,10 @@ def s4_tiles():
         (x0, x1), (y0, y1) = cols[c], rows[r]
         ins = 9 if panel == 'p' else 12   # stay clear of the cell's anti-aliased border
         im = sheets['s4'].crop((x0 + ins, y0 + ins, x1 - ins, y1 - ins)).convert('RGBA')
-        out[name] = im.resize((T * RES, T * RES), Image.LANCZOS)
+        im = im.resize((T * RES, T * RES), Image.LANCZOS)
+        if name.startswith(('gt_path', 'gt_dirt_')):
+            im = key_grass(im)       # the continuous grass texture shows through
+        out[name] = im
     # watered furrows: same tile, darker and a touch bluer
     wet = out['gt_furrow'].copy()
     px = wet.load()
@@ -756,21 +772,31 @@ def tool_icons():
 
 
 # --------------------------------------------------------------------- pack
-def pack(images):
+def pack(images, pad=3):
+    """Shelf packer. Every sprite gets a `pad`-px border made of its own edge
+    pixels (extrusion): lossy WebP and texture filtering then never bleed a
+    neighbour's colours into tiles/patterns (no seams, no grey lines)."""
     items = sorted(images.items(), key=lambda kv: (-kv[1].height, -kv[1].width))
-    W = 2048
+    W = 3072
     x = y = shelf = 0
     rects = {}
     for name, im in items:
-        if x + im.width > W:
-            x = 0; y += shelf + 1; shelf = 0
-        rects[name] = (x, y, im.width, im.height)
-        x += im.width + 1
-        shelf = max(shelf, im.height)
+        w, h = im.width + 2 * pad, im.height + 2 * pad
+        if x + w > W:
+            x = 0; y += shelf; shelf = 0
+        rects[name] = (x + pad, y + pad, im.width, im.height)
+        x += w
+        shelf = max(shelf, h)
     H = y + shelf
     atlas = Image.new('RGBA', (W, H), (0, 0, 0, 0))
     for name, im in images.items():
-        rx, ry, _, _ = rects[name]
+        rx, ry, w, h = rects[name]
+        im = im.convert('RGBA')
+        # extrude: edge rows/cols repeated into the padding
+        atlas.paste(im.crop((0, 0, w, 1)).resize((w, pad)), (rx, ry - pad))
+        atlas.paste(im.crop((0, h - 1, w, h)).resize((w, pad)), (rx, ry + h))
+        atlas.paste(im.crop((0, 0, 1, h)).resize((pad, h)), (rx - pad, ry))
+        atlas.paste(im.crop((w - 1, 0, w, h)).resize((pad, h)), (rx + w, ry))
         atlas.paste(im, (rx, ry))
     return atlas, rects
 
@@ -872,7 +898,7 @@ def main():
         if os.path.exists(os.path.join(OUT_DIR, old)):
             os.remove(os.path.join(OUT_DIR, old))
     out_path = os.path.join(OUT_DIR, 'atlas.webp')
-    atlas.save(out_path, 'WEBP', quality=92, method=6)
+    atlas.save(out_path, 'WEBP', quality=90, method=6)
     with open(os.path.join(OUT_DIR, 'atlas.json'), 'w') as f:
         json.dump({'w': atlas.width, 'h': atlas.height, 'res': RES, 'frames': rects, 'masks': masks}, f, separators=(',', ':'))
     print(f'atlas {atlas.width}x{atlas.height} @{RES}x, {len(rects)} sprites, {os.path.getsize(out_path)//1024} KB')

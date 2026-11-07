@@ -2,7 +2,7 @@ import './style.css';
 import { buildFarm, isTillable } from '../../shared/maps/farm.ts';
 import { CROPS, RIPE, key, type Plot } from '../../shared/rules.ts';
 import { drawAnchored, drawAt, loadAtlas } from './atlas.ts';
-import { Effects, swayFor } from './effects.ts';
+import { Effects, drawScreenLight, swayFor } from './effects.ts';
 import { loadGround, saveGround } from './groundcache.ts';
 import { Input } from './input.ts';
 import { Store } from './net.ts';
@@ -67,12 +67,12 @@ function useTile(tx: number, ty: number) {
   const p: Plot | undefined = store.st.plots[key(tx, ty)];
   if (p && p.c && p.s >= RIPE) {
     const c = p.c;
-    if (store.act({ t: 'harvest', x: tx, y: ty })) { ui.toast(`+1 ${CROPS[c].name}`, 900); player.playAction('pl_harvest'); }
+    if (store.act({ t: 'harvest', x: tx, y: ty })) { ui.toast(`+1 ${CROPS[c].name}`, 900); player.playAction('pl_harvest'); fx.burst(tx * TILE + 16, ty * TILE + 20, 'leaf', 10); }
     return;
   }
   const slot = ui.current;
-  if (slot.id === 'hoe') { if (store.act({ t: 'till', x: tx, y: ty })) player.playAction('pl_hoe'); }
-  else if (slot.id === 'can') { if (store.act({ t: 'water', x: tx, y: ty })) player.playAction('pl_water'); }
+  if (slot.id === 'hoe') { if (store.act({ t: 'till', x: tx, y: ty })) { player.playAction('pl_hoe'); fx.burst(tx * TILE + 16, ty * TILE + 22, 'soil', 10); } }
+  else if (slot.id === 'can') { if (store.act({ t: 'water', x: tx, y: ty })) { player.playAction('pl_water'); fx.burst(tx * TILE + 16, ty * TILE + 18, 'water', 14); } }
   else if (slot.id.startsWith('seed:')) store.act({ t: 'plant', x: tx, y: ty, crop: slot.id.slice(5) });
   else if (p && p.c) ui.toast(`${CROPS[p.c].name}: chưa chín`, 900);
   else ui.toast('Chọn cuốc để xới đất, hạt giống để gieo', 1400);
@@ -91,7 +91,7 @@ const zinBtn = document.getElementById('zin') as HTMLButtonElement;
 const zoutBtn = document.getElementById('zout') as HTMLButtonElement;
 
 function resize() {
-  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  dpr = Math.min(window.devicePixelRatio || 1, 3);
   const w = Math.round(innerWidth * dpr), h = Math.round(innerHeight * dpr);
   canvas.width = w; canvas.height = h;
   canvas.style.width = innerWidth + 'px';
@@ -164,6 +164,7 @@ const screenToWorld = (sx: number, sy: number) => ({ x: (sx * dpr) / zoom + cam.
 const axis = { x: 0, y: 0 };
 let target: [number, number] = [0, 0];
 let exitCooldown = 0;
+let stepT = 0;
 
 function update(dt: number) {
   if (input.slotPressed >= 0) ui.select(input.slotPressed);
@@ -178,6 +179,7 @@ function update(dt: number) {
   input.axis(axis);
   player.running = input.run;
   player.update(dt, axis.x, axis.y, world);
+  if (player.moving && (stepT += dt) > (player.running ? 0.18 : 0.3)) { stepT = 0; fx.burst(player.x, player.y - 1, 'dust', player.running ? 3 : 2); }
 
   // pointer: tap a tile near you to use it, far away to walk there
   if (input.tap) {
@@ -260,7 +262,9 @@ function render(time: number) {
 
   // target highlight
   const [hx, hy] = target;
-  if (!ui.panelOpen && hx >= 0 && hy >= 0 && hx < map.w && hy < map.h) {
+  // only highlight cells that can be worked on (field cells, plots, shop spots)
+  if (!ui.panelOpen && hx >= 0 && hy >= 0 && hx < map.w && hy < map.h
+    && (isTillable(map, hx, hy) || plots[key(hx, hy)] || spots.has(key(hx, hy)))) {
     const pulse = 0.45 + 0.25 * Math.sin(time / 180);
     ctx.strokeStyle = `rgba(255,255,255,${pulse})`;
     ctx.lineWidth = 1;
@@ -301,6 +305,8 @@ function render(time: number) {
     } else drawAnchored(ctx, atlas, d.name, d.x, d.y, d.flip);
   }
   fx.drawAir(ctx, ts, camX, camY, vw, vh);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  drawScreenLight(ctx, canvas.width, canvas.height, ts);
 }
 
 // ------------------------------------------------------------------- loop
