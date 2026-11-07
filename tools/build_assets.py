@@ -21,7 +21,14 @@ sheets = {
     's2': Image.open(os.path.join(ROOT, 'assets/source/sheet2.png')).convert('RGB'),
     's3': Image.open(os.path.join(ROOT, 'assets/source/sheet3.png')).convert('RGB'),
     's4': Image.open(os.path.join(ROOT, 'assets/source/sheet4.png')).convert('RGB'),
+    's5': Image.open(os.path.join(ROOT, 'assets/source/sheet5.png')).convert('RGB'),
 }
+
+
+def is_cell_bg(p):
+    """Lighter slate cells behind the character frames (sheet 5)."""
+    r, g, b = p[:3]
+    return 98 <= r <= 124 and 107 <= g <= 133 and 124 <= b <= 152 and b - r > 18
 
 
 def is_bg(p):
@@ -47,18 +54,18 @@ def cut_object(sheet, box):
         if seen[i]:
             continue
         seen[i] = 1
-        if not is_bg(px[x, y]):
+        if not (is_bg(px[x, y]) or (sheet == 's5' and is_cell_bg(px[x, y]))):
             continue
         px[x, y] = (0, 0, 0, 0)
         if x > 0: q.append((x - 1, y))
         if x < w - 1: q.append((x + 1, y))
         if y > 0: q.append((x, y - 1))
         if y < h - 1: q.append((x, y + 1))
-    drop_border_fragments(im)
+    drop_border_fragments(im, keep_only_big=(sheet == 's5'))
     return im
 
 
-def drop_border_fragments(im):
+def drop_border_fragments(im, keep_only_big=False):
     """Remove small opaque islands touching the crop edge (bits of neighbouring
     sprites that leaked into the crop box)."""
     w, h = im.size
@@ -88,7 +95,7 @@ def drop_border_fragments(im):
         return
     biggest = max(len(p) for p, _ in comps)
     for pts, border in comps:
-        if len(pts) < biggest * 0.2 and (border or len(pts) < 40):
+        if len(pts) < biggest * 0.2 and (border or len(pts) < 40 or keep_only_big):
             for x, y in pts:
                 px[x, y] = (0, 0, 0, 0)
 
@@ -697,9 +704,8 @@ def main():
     images['tile_tallgrass'] = make_tall_grass_tile(600)
     images['tallgrass_top'] = tall_grass_top(601)
     images['seeds'] = make_seeds(images['tile_soil'])
-    for dname, di in (('down', 0), ('left', 1), ('right', 2), ('up', 3)):
-        for f in range(4):
-            images[f'player_{dname}_{f}'] = draw_player(di, f)
+    # HUD portrait (opaque, keeps its orange frame)
+    images['portrait'] = sheets['s5'].crop((2278, 138, 2552, 398)).convert('RGBA').resize((44, 42), Image.BOX)
     images.update(tool_icons())
 
     atlas, rects = pack(images)

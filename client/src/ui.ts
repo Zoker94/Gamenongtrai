@@ -23,6 +23,8 @@ export class UI {
 
   constructor(atlas: Atlas) {
     this.atlas = atlas;
+    const av = $('avatar');
+    av.replaceChildren(this.iconEl('portrait', 44));
     this.hotbar.addEventListener('pointerdown', (e) => {
       const el = (e.target as HTMLElement).closest('[data-i]') as HTMLElement | null;
       if (el) { this.select(+el.dataset.i!); e.preventDefault(); }
@@ -67,7 +69,7 @@ export class UI {
     const prevId = this.current?.id;
     this.sig = sig;
     this.slots = [
-      { id: 'hoe', icon: 'icon_hoe', label: 'Cuốc' },
+      { id: 'hoe', icon: 'tool_hoe', label: 'Cuốc' },
       { id: 'can', icon: 'icon_can', label: 'Bình tưới' },
       { id: 'hand', icon: 'veg_crates', label: 'Thu hoạch' },
       ...seeds.map((c) => ({ id: 'seed:' + c, icon: 'crop_' + c, label: 'Hạt ' + CROPS[c].name, count: st.inv['seed:' + c] })),

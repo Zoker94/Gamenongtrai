@@ -44,12 +44,12 @@ function useTile(tx: number, ty: number) {
   const p: Plot | undefined = store.st.plots[key(tx, ty)];
   if (p && p.c && p.s >= RIPE) {
     const c = p.c;
-    if (store.act({ t: 'harvest', x: tx, y: ty })) ui.toast(`+1 ${CROPS[c].name}`, 900);
+    if (store.act({ t: 'harvest', x: tx, y: ty })) { ui.toast(`+1 ${CROPS[c].name}`, 900); player.playAction('pl_harvest'); }
     return;
   }
   const slot = ui.current;
-  if (slot.id === 'hoe') store.act({ t: 'till', x: tx, y: ty });
-  else if (slot.id === 'can') store.act({ t: 'water', x: tx, y: ty });
+  if (slot.id === 'hoe') { if (store.act({ t: 'till', x: tx, y: ty })) player.playAction('pl_hoe'); }
+  else if (slot.id === 'can') { if (store.act({ t: 'water', x: tx, y: ty })) player.playAction('pl_water'); }
   else if (slot.id.startsWith('seed:')) store.act({ t: 'plant', x: tx, y: ty, crop: slot.id.slice(5) });
   else if (p && p.c) ui.toast(`${CROPS[p.c].name}: chưa chín`, 900);
   else ui.toast('Chọn cuốc để xới đất, hạt giống để gieo', 1400);
@@ -195,14 +195,15 @@ function render(time: number) {
     push(o.name, o.x, o.y, o.flip);
   }
   const px = Math.round(player.x), py = Math.round(player.y);
-  push(player.frame, px, py, false);
+  const [pf, pflip] = player.frame;
+  push(pf, px, py - player.bob, pflip);
   list.sort(byY);
 
   for (const d of list) {
-    if (d.name.startsWith('player')) {
-      ctx.fillStyle = 'rgba(0,0,0,0.25)';
-      ctx.fillRect(d.x - 5, d.y - 2, 10, 3);
-      ctx.fillRect(d.x - 6, d.y - 1, 12, 1);
+    if (d.name.startsWith('pl_')) {
+      ctx.fillStyle = 'rgba(30,36,10,0.3)';
+      ctx.fillRect(d.x - 7, py - 2, 14, 3);
+      ctx.fillRect(d.x - 5, py + 1, 10, 1);
     }
     drawAnchored(ctx, atlas, d.name, d.x, d.y, d.flip);
   }
