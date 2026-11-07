@@ -2,7 +2,7 @@
 // RNG, so it is identical on client and server. Edit the zone coordinates
 // below to reshape the map.
 //
-// Layout (30x22 tiles, built from the user's sheet-4 ground tiles):
+// Layout (24x17 tiles, built from the user's sheet-4 ground tiles):
 //   north: farmhouse + yard, barn, silo, windmill, orchard
 //   middle: dirt road west-east (exit -> town), crossroads
 //   south-west: crop field (dirt area with ploughed beds), greenhouse
@@ -87,16 +87,16 @@ function distToPolyline(px: number, py: number, pts: number[][]) {
 }
 
 export function buildFarm(): GameMap {
-  const W = 30, H = 22;
+  const W = 24, H = 17;
   const inb = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H;
   const idx = (x: number, y: number) => y * W + x;
 
   // ------------------------------------------------------------- ground
-  const FIELD: Rect = { x0: 3, y0: 11, x1: 11, y1: 16 };          // dirt area incl. grassy rim
-  const BEDS: Rect = { x0: 4, y0: 12, x1: 10, y1: 15 };           // tillable interior
-  const ROAD_Y = 9;
+  const FIELD: Rect = { x0: 2, y0: 10, x1: 9, y1: 14 };           // dirt area incl. grassy rim
+  const BEDS: Rect = { x0: 3, y0: 11, x1: 8, y1: 13 };            // tillable interior
+  const ROAD_Y = 8;
   const PATHS_V = [                                               // [x, y0, y1]
-    [6, 7, ROAD_Y], [15, 7, H - 1], [22, 8, 11],
+    [5, 6, ROAD_Y], [12, 6, H - 1],
   ];
   const r = rng(20241107);
   const pick = <T,>(a: T[]) => a[Math.floor(r() * a.length)];
@@ -111,7 +111,7 @@ export function buildFarm(): GameMap {
   const ground = new Uint8Array(W * H);
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
-      let t = r() < 0.82 ? 'gt_grass0' : r() < 0.7 ? 'gt_grass1' : r() < 0.6 ? 'gt_grass2' : 'gt_grass3';
+      let t = r() < 0.9 ? 'gt_grass0' : r() < 0.6 ? 'gt_grass2' : 'gt_grass3';
       let g: number = G.Grass;
       if (inRect(x, y, FIELD)) {
         g = G.Dirt;
@@ -158,62 +158,43 @@ export function buildFarm(): GameMap {
   };
 
   // --- farmhouse & yard (north-west)
-  o('house', 6, 6);
-  o('well', 2.8, 7.2);
-  o('bucket', 3.9, 7.6);
-  o('firewood', 2.6, 5.4);
-  o('barrel', 9.2, 6.4);
-  o('crate', 10.1, 6.6);
-  o('lamp_post', 5.2, 8);
-  o('lamp_post', 6.8, 8);
-  o('chest_gold', 8.4, 8);        // shipping bin
-  o('seed_bag', 9.6, 8);          // seed shop
-  o('flower_bush_r', 4, 8.3);
-  o('flowers_y', 7.9, 6.9);
-  o('bench', 11.6, 7.4);
-  o('tree_fruit', 11.2, 4.6);
-  o('tree_fruit', 13, 3.8);
-  reserve(2, 2, 13, 8);
+  o('house', 5, 5);
+  o('well', 2.6, 6.2);
+  o('firewood', 2.6, 4.4);
+  o('barrel', 8.2, 5.4);
+  o('crate', 9.1, 5.6);
+  o('lamp_post', 4.2, 7);
+  o('lamp_post', 5.8, 7);
+  o('chest_gold', 7.3, 7);        // shipping bin
+  o('seed_bag', 8.6, 7);          // seed shop
+  o('flower_bush_r', 3.2, 7.3);
+  o('flowers_y', 7, 5.9);
+  o('tree_fruit', 10.2, 4.4);
+  o('bench', 9.8, 6.6);
+  reserve(2, 2, 11, 7);
 
-  // --- barn, silo, windmill, coop (north-east)
-  o('barn_red', 15, 6);
-  o('hay_bale', 17.4, 7.3);
-  o('silo', 18.6, 6);
-  o('sack', 13.6, 8.2);
-  o('windmill', 22, 7.2);
-  o('cart', 19.6, 8.1);
-  o('coop_pen', 25.6, 6.6);
-  o('trough_feed', 24.2, 8.2);
-  o('hay_pile', 27.2, 8.1);
-  reserve(14, 2, 27, 8);
+  // --- barn, silo, windmill (north-east)
+  o('barn_red', 12, 5);
+  o('hay_bale', 14.4, 6.3);
+  o('silo', 15.6, 5);
+  o('windmill', 19, 5.6);
+  o('flowers_lav', 17.4, 6.6);
+  reserve(11, 2, 21, 7);
 
   // --- crop field (south-west)
-  o('sign', 6, 10.3);             // field sign (covers the crossing stub)
-  o('scarecrow', 11, 12.4);
-  o('veg_crates', 12.6, 11.4);
-  o('tool_rack', 12.8, 13.6);
-  o('hay_pile', 12.6, 15.4);
-  o('greenhouse', 5.6, 18.6);
-  o('barrel_herb', 8.8, 18.2);
-  o('planter_sun', 10.4, 18.4);
-  o('bucket', 2.8, 17.6);
-  reserve(2, 10, 14, 19);
+  o('sign', 5, 9.3);              // field sign (covers the crossing stub)
+  o('scarecrow', 9, 11.2);
+  o('barrel_herb', 10.6, 12.2);
+  o('flower_bush_y', 10.6, 14.2);
+  reserve(2, 9, 11, 15);
 
   // --- fish pond (south-east): painted scene from the user's pond sheet
-  const scenes: MapObject[] = [{ s: 'pond_scene', x: 22.2, y: 18.9 }];
-  o('lamp_tall', 21, 10.6);
-  o('lamp_tall', 23, 10.6);
-  o('bench', 18.4, 11);
-  o('barrel', 25.6, 11.1);
-  o('beehives', 27.2, 11.4);
-  o('flowers_lav', 16.8, 13.4);
-  o('fern', 16.6, 16.4);
-  o('rock_moss', 16.8, 18.8);
-  o('flower_bush_t', 19, 19.6);
-  o('flowers_y', 24.4, 19.7);
-  o('signpost', 16.4, 20.4);
-  o('signpost', 28.2, 8.2);
-  reserve(16, 10, 28, 20);
+  const scenes: MapObject[] = [{ s: 'pond_scene', x: 18.6, y: 16.3 }];
+  o('bench', 15, 9.4);
+  o('beehives', 21.2, 9.4);
+  o('signpost', 13.6, 15.4);
+  o('signpost', 22.4, 7.2);
+  reserve(13, 9, 23, 16);
 
   // keep paths, field and water free of random stuff
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (get(x, y) !== G.Grass) reserved[idx(x, y)] = 1;
@@ -223,7 +204,7 @@ export function buildFarm(): GameMap {
   // --- forest around the farm (exits stay open)
   const CLUMPS = ['trees_double', 'trees_cluster', 'tree_round', 'forest_pines'];
   const TREES = ['tree_round', 'tree_green', 'tree_pine', 'tree_pine2', 'tree_big', 'tree_autumn', 'tree_round', 'tree_green'];
-  const exit = (x: number, y: number) => (Math.abs(y - ROAD_Y) <= 1 && x > W - 4) || (Math.abs(x - 15) <= 1 && y > H - 4);
+  const exit = (x: number, y: number) => (Math.abs(y - ROAD_Y) <= 1 && x > W - 4) || (Math.abs(x - 12) <= 1 && y > H - 4);
   const border = (x: number, y: number) => Math.min(x, y, W - 1 - x, (H - 1 - y) * 2);
   const placeTree = (name: string, x: number, y: number) => {
     if (!free(x, y) || exit(x, y)) return;
@@ -236,15 +217,15 @@ export function buildFarm(): GameMap {
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (border(x, y) <= 1) placeTree(pick(TREES), x, y);
 
   // --- small greenery: dense in the forest strip, sparse inside
-  const SMALLS = ['flowers_o', 'flowers_y', 'flower_bush_y', 'flower_bush_r', 'bush_a', 'fern', 'rock_s1', 'stump', 'mushroom', 'pebbles'];
+  const SMALLS = ['flowers_o', 'flowers_y', 'flower_bush_y', 'flower_bush_r', 'bush_a', 'rock_s1', 'stump', 'mushroom'];
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++)
-      if (free(x, y) && r() < (border(x, y) <= 2 ? 0.6 : 0.12)) { o(pick(SMALLS), x + (r() - 0.5) * 0.3, y, r() < 0.5); reserve(x, y, x, y); }
+      if (free(x, y) && r() < (border(x, y) <= 2 ? 0.5 : 0.06)) { o(pick(SMALLS), x + (r() - 0.5) * 0.3, y, r() < 0.5); reserve(x, y, x, y); }
 
   // --- ground details from the user's sheet (flowers, clover, leaves, pebbles)
   const DECALS = ['d_flower_y', 'd_flower_w', 'd_flower_r', 'd_flower_o', 'd_clover', 'd_clover2', 'd_clover3',
     'd_clover_s', 'd_sprouts', 'd_tuft', 'd_tuft2', 'd_leaves_g', 'd_leaves_o', 'd_pebbles', 'd_moss'];
-  for (let i = 0; i < 170; i++) {
+  for (let i = 0; i < 110; i++) {
     const x = r() * W, y = r() * H;
     if (get(Math.floor(x), Math.floor(y)) !== G.Grass) continue;
     decals.push({ s: pick(DECALS), x: x - 0.5, y: y + 0.3 });
@@ -260,11 +241,11 @@ export function buildFarm(): GameMap {
   const row = (y: number, x0: number, x1: number, c: string, st: number) => {
     for (let x = x0; x <= x1; x++) if (get(x, y) === G.Field) starter.push({ x, y, c, s: st });
   };
-  row(12, 4, 10, 'carrot', 3);
-  row(13, 4, 7, 'tomato', 2);
-  row(13, 8, 10, 'strawberry', 1);
-  row(14, 4, 6, 'pumpkin', 3);
-  row(15, 4, 5, '', 0);
+  row(11, 3, 8, 'carrot', 3);
+  row(12, 3, 5, 'tomato', 2);
+  row(12, 6, 8, 'strawberry', 1);
+  row(13, 3, 4, 'pumpkin', 3);
+  row(13, 5, 6, '', 0);
 
   return {
     id: 'farm',
@@ -273,12 +254,12 @@ export function buildFarm(): GameMap {
     courts: [],
     exits: [
       { x0: W - 1, y0: ROAD_Y - 1, x1: W - 1, y1: ROAD_Y + 1, to: 'town', label: 'Thành phố' },
-      { x0: 14, y0: H - 1, x1: 16, y1: H - 1, to: 'park', label: 'Công viên' },
+      { x0: 11, y0: H - 1, x1: 13, y1: H - 1, to: 'park', label: 'Công viên' },
     ],
-    spawn: { x: 6, y: 8 },
+    spawn: { x: 5, y: 7 },
     spots: [
-      { id: 'ship', x: 8, y: 8 },
-      { id: 'shop', x: 10, y: 8 },
+      { id: 'ship', x: 7, y: 7 },
+      { id: 'shop', x: 9, y: 7 },
     ],
   };
 }

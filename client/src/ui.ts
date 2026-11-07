@@ -70,9 +70,9 @@ export class UI {
     this.sig = sig;
     this.slots = [
       { id: 'hoe', icon: 'tool_hoe', label: 'Cuốc' },
-      { id: 'can', icon: 'icon_can', label: 'Bình tưới' },
-      { id: 'hand', icon: 'veg_crates', label: 'Thu hoạch' },
-      ...seeds.map((c) => ({ id: 'seed:' + c, icon: 'crop_' + c, label: 'Hạt ' + CROPS[c].name, count: st.inv['seed:' + c] })),
+      { id: 'can', icon: 'tool_can', label: 'Bình tưới' },
+      { id: 'hand', icon: 'pc_tomato', label: 'Thu hoạch' },
+      ...seeds.map((c) => ({ id: 'seed:' + c, icon: 'pc_' + c, label: 'Hạt ' + CROPS[c].name, count: st.inv['seed:' + c] })),
     ];
     this.hotbar.replaceChildren(...this.slots.map((s, i) => {
       const d = document.createElement('div');
@@ -112,7 +112,7 @@ export class UI {
     this.panel.dataset.kind = 'shop';
     const rows = CROP_IDS.map((c) => {
       const d = CROPS[c];
-      return `<div class="row"><span class="ic" data-ic="crop_${c}"></span>
+      return `<div class="row"><span class="ic" data-ic="pc_${c}"></span>
         <span class="nm">${d.name}<small>${d.stageSecs * 3}s · bán ${d.sellPrice}🪙</small></span>
         <span class="have">${st.inv['seed:' + c] || 0}</span>
         <button data-buy="${c}" data-n="1" ${st.coins < d.seedPrice ? 'disabled' : ''}>${d.seedPrice}🪙</button>
@@ -125,7 +125,7 @@ export class UI {
     this.panel.dataset.kind = 'ship';
     const items = CROP_IDS.filter((c) => st.inv[c]);
     const rows = items.length
-      ? items.map((c) => `<div class="row"><span class="ic" data-ic="crop_${c}"></span>
+      ? items.map((c) => `<div class="row"><span class="ic" data-ic="pc_${c}"></span>
           <span class="nm">${CROPS[c].name}<small>${CROPS[c].sellPrice}🪙 / cái</small></span>
           <span class="have">${st.inv[c]}</span>
           <button data-sell="${c}" data-n="1">Bán 1</button>

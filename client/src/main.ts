@@ -84,9 +84,9 @@ const cam = { x: 0, y: 0 };
 // ?z=1 forces a zoom level (handy for map overview screenshots while designing)
 const FORCE_ZOOM = Number(new URLSearchParams(location.search).get('z')) || 0;
 // player-chosen zoom, multiplied with the automatic base zoom
-const ZOOM_STEPS = [0.6, 0.75, 0.9, 1, 1.25, 1.5, 1.8, 2.2];
-let zoomStep = 3;
-try { const v = Number(localStorage.getItem('gnt_zoom')); if (v >= 0 && v < ZOOM_STEPS.length) zoomStep = v; } catch { /* ignore */ }
+const ZOOM_STEPS = [0.75, 0.85, 1, 1.2, 1.45];
+let zoomStep = 2;
+try { const v = Number(localStorage.getItem('gnt_zoom2')); if (v >= 0 && v < ZOOM_STEPS.length) zoomStep = v; } catch { /* ignore */ }
 const zinBtn = document.getElementById('zin') as HTMLButtonElement;
 const zoutBtn = document.getElementById('zout') as HTMLButtonElement;
 
@@ -97,8 +97,8 @@ function resize() {
   canvas.style.width = innerWidth + 'px';
   canvas.style.height = innerHeight + 'px';
   // base: show ~11 tiles on the short side; never zoom out past the map edges
-  // close-up camera: about 7 tiles on the short side of the screen
-  const base = Math.max(1, Math.min(w, h) / (7 * TILE));
+  // close-up camera: about 5.5 tiles on the short side of the screen
+  const base = Math.max(1, Math.min(w, h) / (5.5 * TILE));
   const fill = Math.max(w / world.pxW, h / world.pxH);
   zoom = FORCE_ZOOM || Math.max(fill, base * ZOOM_STEPS[zoomStep]);
   vw = w / zoom; vh = h / zoom;
@@ -114,7 +114,7 @@ function setZoom(delta: number) {
   const next = Math.max(0, Math.min(ZOOM_STEPS.length - 1, zoomStep + delta));
   if (next === zoomStep) return;
   zoomStep = next;
-  try { localStorage.setItem('gnt_zoom', String(zoomStep)); } catch { /* ignore */ }
+  try { localStorage.setItem('gnt_zoom2', String(zoomStep)); } catch { /* ignore */ }
   resize();
   updateCamera(0, true);
 }
@@ -252,8 +252,10 @@ function render(time: number) {
     const p = plots[k];
     drawAt(ctx, atlas, p.w ? 'gt_furrow_wet' : 'gt_furrow', tx * TILE, ty * TILE);
     if (!p.c) continue;
-    if (p.s === 0) drawAt(ctx, atlas, 'seeds', tx * TILE, ty * TILE);
-    else push(p.s >= RIPE ? 'crop_' + p.c : p.s === 1 ? 'crop_young' : 'crop_sprout', tx * TILE + 16, ty * TILE + TILE - 1, false);
+    // stage 0 = seeds in the furrows (nothing visible yet), 1 = small sprout,
+    // 2 = leafy sprout, 3 = ripe plant
+    if (p.s === 0) continue;
+    push(p.s >= RIPE ? 'pc_' + p.c : p.s === 1 ? 'pc_sprout:s' : 'pc_sprout', tx * TILE + 16, ty * TILE + TILE - 3, false);
   }
 
   // target highlight
@@ -282,7 +284,13 @@ function render(time: number) {
       ctx.fillRect(d.x - 7, py - 2, 14, 3);
       ctx.fillRect(d.x - 5, py + 1, 10, 1);
     }
-    const sw = swayFor(d.name, d.x, d.y, ts);
+    if (d.name.endsWith(':s')) {           // small variant (young sprout)
+      const nm = d.name.slice(0, -2), sw = swayFor('crop_', d.x, d.y, ts);
+      ctx.save(); ctx.translate(d.x, d.y); ctx.transform(0.6, 0, sw * 0.6, 0.6, 0, 0);
+      drawAnchored(ctx, atlas, nm, 0, 0, d.flip); ctx.restore();
+      continue;
+    }
+    const sw = swayFor(d.name.startsWith('pc_') ? 'crop_' : d.name, d.x, d.y, ts);
     if (sw) {
       // shear around the base: the top moves, the roots stay put
       ctx.save();

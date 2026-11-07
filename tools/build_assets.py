@@ -263,7 +263,8 @@ def s4_tiles():
     for name, (panel, c, r) in S4_TILES.items():
         cols, rows = (S4_PATH_COLS, S4_PATH_ROWS) if panel == 'p' else (S4_TR_COLS, S4_TR_ROWS)
         (x0, x1), (y0, y1) = cols[c], rows[r]
-        im = sheets['s4'].crop((x0 + 3, y0 + 3, x1 - 2, y1 - 2)).convert('RGBA')
+        ins = 9 if panel == 'p' else 12   # stay clear of the cell's anti-aliased border
+        im = sheets['s4'].crop((x0 + ins, y0 + ins, x1 - ins, y1 - ins)).convert('RGBA')
         out[name] = im.resize((T * RES, T * RES), Image.LANCZOS)
     # watered furrows: same tile, darker and a touch bluer
     wet = out['gt_furrow'].copy()
@@ -274,6 +275,58 @@ def s4_tiles():
             px[x, y] = (int(r_ * 0.62), int(g_ * 0.58), int(b_ * 0.62) + 6, a_)
     out['gt_furrow_wet'] = wet
     return out
+
+
+# --------------------------------------------- single plants (no soil square)
+# One plant cut out of the crop beds of sheet 1; the bed soil and the sheet
+# background are removed so the plant can stand on any ground tile.
+PLANTS = {
+    'pc_carrot': (1162, 884, 1210, 952),
+    'pc_strawberry': (1495, 884, 1537, 950),
+    'pc_turnip': (1604, 880, 1662, 1002),
+    'pc_pumpkin': (1712, 878, 1772, 1004),
+    'pc_beet': (1832, 880, 1886, 1004),
+    'pc_tomato': (1164, 1022, 1214, 1084),
+    'pc_eggplant': (1388, 1028, 1436, 1084),
+    'pc_sprout': (1494, 1026, 1540, 1088),
+}
+
+
+def is_soil(p):
+    r, g, b = p[:3]
+    return (60 <= r <= 175 and 30 <= g <= 120 and 15 <= b <= 90 and r > g + 22 and g >= b + 2) or is_bg(p)
+
+
+def cut_plant(box):
+    im = sheets['s1'].crop(box).convert('RGBA')
+    px = im.load()
+    w, h = im.size
+    for y in range(h):
+        for x in range(w):
+            if is_soil(px[x, y]):
+                px[x, y] = (0, 0, 0, 0)
+    # keep only the plant itself: the largest connected blob
+    seen = [[0] * w for _ in range(h)]
+    best = []
+    for sy in range(h):
+        for sx in range(w):
+            if seen[sy][sx] or not px[sx, sy][3]:
+                continue
+            comp, st = [], [(sx, sy)]
+            seen[sy][sx] = 1
+            while st:
+                x, y = st.pop(); comp.append((x, y))
+                for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                    if 0 <= nx < w and 0 <= ny < h and not seen[ny][nx] and px[nx, ny][3]:
+                        seen[ny][nx] = 1; st.append((nx, ny))
+            if len(comp) > len(best):
+                best = comp
+    keep = set(best)
+    for y in range(h):
+        for x in range(w):
+            if (x, y) not in keep:
+                px[x, y] = (0, 0, 0, 0)
+    return trim(im)
 
 
 def downscale(im, size=None, mult=1.0):
@@ -751,6 +804,14 @@ def main():
         else:
             images[name] = trim(downscale(cut_object(sh, (x0, y0, x1, y1)), mult=mult))
     images.update(cut_player()); native.update(k for k in images if k.startswith('pl_'))
+    for name, box in PLANTS.items():
+        im = cut_plant(box)
+        k = min(26 * RES / im.width, 28 * RES / im.height)
+        images[name] = im.resize((max(1, round(im.width * k)), max(1, round(im.height * k))), Image.LANCZOS)
+        native.add(name)
+    # watering can icon from the farming-action panel of sheet 5
+    can = cut_object('s5', (1160, 1108, 1262, 1186))
+    images['tool_can'] = trim(downscale(can, mult=0.6)); native.add('tool_can')
     images.update(s4_tiles()); native.update(S4_TILES); native.add('gt_furrow_wet')
     # crops render as 1 tile
     for name in list(images):
