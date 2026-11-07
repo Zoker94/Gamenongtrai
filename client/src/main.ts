@@ -97,7 +97,8 @@ function resize() {
   canvas.style.width = innerWidth + 'px';
   canvas.style.height = innerHeight + 'px';
   // base: show ~11 tiles on the short side; never zoom out past the map edges
-  const base = Math.max(1, Math.min(w, h) / (11 * TILE));
+  // close-up camera: about 7 tiles on the short side of the screen
+  const base = Math.max(1, Math.min(w, h) / (7 * TILE));
   const fill = Math.max(w / world.pxW, h / world.pxH);
   zoom = FORCE_ZOOM || Math.max(fill, base * ZOOM_STEPS[zoomStep]);
   vw = w / zoom; vh = h / zoom;
@@ -249,7 +250,7 @@ function render(time: number) {
     const tx = +k.slice(0, i), ty = +k.slice(i + 1);
     if (tx < x0 || tx > x1 || ty < y0 || ty > y1) continue;
     const p = plots[k];
-    drawAt(ctx, atlas, p.w ? 'tile_soil_wet' : 'tile_soil', tx * TILE, ty * TILE);
+    drawAt(ctx, atlas, p.w ? 'gt_furrow_wet' : 'gt_furrow', tx * TILE, ty * TILE);
     if (!p.c) continue;
     if (p.s === 0) drawAt(ctx, atlas, 'seeds', tx * TILE, ty * TILE);
     else push(p.s >= RIPE ? 'crop_' + p.c : p.s === 1 ? 'crop_young' : 'crop_sprout', tx * TILE + 16, ty * TILE + TILE - 1, false);

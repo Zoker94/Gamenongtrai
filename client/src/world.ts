@@ -168,6 +168,55 @@ export class World {
   /** true when the ground art was freshly rendered (worth caching) */
   get rendered() { return this.chunks.length > 0 && !(this.chunks[0] instanceof ImageBitmap); }
 
+  private drawTile(ctx: Ctx2D, name: string, x: number, y: number, flip?: string) {
+    const f = this.atlas.frames[name];
+    if (!f) return;
+    // tiles overlap 1px so the painted cells never show hairline seams
+    if (!flip) { ctx.drawImage(this.atlas.img, f[0], f[1], f[4], f[5], x - 0.5, y - 0.5, TILE + 1, TILE + 1); return; }
+    ctx.save();
+    ctx.translate(x + TILE / 2, y + TILE / 2);
+    ctx.scale(flip.includes('h') ? -1 : 1, flip.includes('v') ? -1 : 1);
+    ctx.drawImage(this.atlas.img, f[0], f[1], f[4], f[5], -TILE / 2 - 0.5, -TILE / 2 - 0.5, TILE + 1, TILE + 1);
+    ctx.restore();
+  }
+
+  /** Court lines, painted scenes, decals and contact shadows for one chunk. */
+  private decorateChunk(ctx: Ctx2D, ox: number, oy: number) {
+    ctx.translate(-ox * TILE, -oy * TILE);
+    const near = (px: number, py: number, m: number) =>
+      px > ox * TILE - m && px < (ox + CHUNK) * TILE + m && py > oy * TILE - m && py < (oy + CHUNK) * TILE + m;
+    // painted court lines
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    for (const cr of this.map.courts) {
+      const x0 = cr.x0 * TILE + 6, y0 = cr.y0 * TILE + 6, x1 = (cr.x1 + 1) * TILE - 6, y1 = (cr.y1 + 1) * TILE - 6;
+      ctx.fillRect(x0, y0, x1 - x0, 2); ctx.fillRect(x0, y1 - 2, x1 - x0, 2);
+      ctx.fillRect(x0, y0, 2, y1 - y0); ctx.fillRect(x1 - 2, y0, 2, y1 - y0);
+      const mx = Math.round((x0 + x1) / 2) - 1, my = (y0 + y1) / 2;
+      ctx.fillRect(mx, y0, 2, y1 - y0);
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(mx + 1, my, 26, 0, Math.PI * 2); ctx.stroke();
+    }
+    // painted scenes (pond...), then decals (tiny flowers, tufts...), then soft contact shadows
+    for (const sc of this.map.scenes) {
+      const f = this.atlas.frames[sc.s];
+      if (!f) continue;
+      const [l, t] = this.sceneOrigin(sc);
+      if (l > (ox + CHUNK) * TILE || t > (oy + CHUNK) * TILE || l + f[2] < ox * TILE || t + f[3] < oy * TILE) continue;
+      drawAt(ctx, this.atlas, sc.s, l, t);
+    }
+    for (const d of this.map.decals) {
+      const px = d.x * TILE + TILE / 2, py = d.y * TILE;
+      if (near(px, py, 64) && !this.underScene(px, py)) drawAnchored(ctx, this.atlas, d.s, px, py, !!d.f);
+    }
+    ctx.fillStyle = 'rgba(40,46,10,0.28)';
+    for (const o of this.objects) {
+      if (!near(o.x, o.y, 96) || o.name === 'tallgrass_top' || NO_SHADOW.test(o.name)) continue;
+      const w = o.r - o.l;
+      const rx = Math.max(5, Math.min(w * 0.42, 56)), ry = Math.max(2.5, Math.min(rx * 0.32, 11));
+      ctx.beginPath(); ctx.ellipse(o.x, o.y - ry * 0.6, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
   /** Encode the rendered chunks (for the IndexedDB cache). */
   async chunkBlobs(): Promise<Blob[]> {
     const out: Blob[] = [];
@@ -215,6 +264,19 @@ export class World {
         ctx.imageSmoothingEnabled = false;
         const ox = cx * CHUNK, oy = cy * CHUNK;
         const fx0 = cx * CPC, fy0 = cy * CPC;
+        if (this.map.tiles) {
+          // tile-based map: every cell is a painted tile from the asset sheet
+          for (let y = 0; y < CHUNK; y++)
+            for (let x = 0; x < CHUNK; x++) {
+              const tx = ox + x, ty = oy + y;
+              if (tx >= this.map.w || ty >= this.map.h) continue;
+              const [name, flip] = this.map.tiles[ty * this.map.w + tx].split('|');
+              this.drawTile(ctx, name, x * TILE, y * TILE, flip);
+            }
+          this.decorateChunk(ctx, ox, oy);
+          this.chunks.push(c);
+          continue;
+        }
         // base: grass everywhere
         if (patterns[G.Grass]) {
           patterns[G.Grass].setTransform(new DOMMatrix([1 / R, 0, 0, 1 / R, -ox * TILE, -oy * TILE]));
@@ -257,39 +319,7 @@ export class World {
         lctx.globalCompositeOperation = 'source-over';
         this.drawOutlines(ctx, fx0, fy0, CPC);
 
-        ctx.translate(-ox * TILE, -oy * TILE);
-        const near = (px: number, py: number, m: number) =>
-          px > ox * TILE - m && px < (ox + CHUNK) * TILE + m && py > oy * TILE - m && py < (oy + CHUNK) * TILE + m;
-        // painted court lines
-        ctx.fillStyle = 'rgba(255,255,255,0.85)';
-        for (const cr of this.map.courts) {
-          const x0 = cr.x0 * TILE + 6, y0 = cr.y0 * TILE + 6, x1 = (cr.x1 + 1) * TILE - 6, y1 = (cr.y1 + 1) * TILE - 6;
-          ctx.fillRect(x0, y0, x1 - x0, 2); ctx.fillRect(x0, y1 - 2, x1 - x0, 2);
-          ctx.fillRect(x0, y0, 2, y1 - y0); ctx.fillRect(x1 - 2, y0, 2, y1 - y0);
-          const mx = Math.round((x0 + x1) / 2) - 1, my = (y0 + y1) / 2;
-          ctx.fillRect(mx, y0, 2, y1 - y0);
-          ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.arc(mx + 1, my, 26, 0, Math.PI * 2); ctx.stroke();
-        }
-        // painted scenes (pond...), then decals (tiny flowers, tufts...), then soft contact shadows
-        for (const sc of this.map.scenes) {
-          const f = this.atlas.frames[sc.s];
-          if (!f) continue;
-          const [l, t] = this.sceneOrigin(sc);
-          if (l > (ox + CHUNK) * TILE || t > (oy + CHUNK) * TILE || l + f[2] < ox * TILE || t + f[3] < oy * TILE) continue;
-          drawAt(ctx, this.atlas, sc.s, l, t);
-        }
-        for (const d of this.map.decals) {
-          const px = d.x * TILE + TILE / 2, py = d.y * TILE;
-          if (near(px, py, 64) && !this.underScene(px, py)) drawAnchored(ctx, this.atlas, d.s, px, py, !!d.f);
-        }
-        ctx.fillStyle = 'rgba(40,46,10,0.28)';
-        for (const o of this.objects) {
-          if (!near(o.x, o.y, 96) || o.name === 'tallgrass_top' || NO_SHADOW.test(o.name)) continue;
-          const w = o.r - o.l;
-          const rx = Math.max(5, Math.min(w * 0.42, 56)), ry = Math.max(2.5, Math.min(rx * 0.32, 11));
-          ctx.beginPath(); ctx.ellipse(o.x, o.y - ry * 0.6, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
-        }
+        this.decorateChunk(ctx, ox, oy);
         this.chunks.push(c);
       }
   }

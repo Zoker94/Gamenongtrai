@@ -238,6 +238,44 @@ def cut_player():
     return out
 
 
+# ------------------------------------------------------- sheet 4 ground tiles
+# Cells of sheet4.png (source px). Path panel cells are ~118px, terrain
+# transition cells ~165px; each becomes one 32px game tile (64px in the atlas).
+S4_PATH_COLS = [(47, 166), (181, 300), (316, 434), (450, 568)]
+S4_PATH_ROWS = [(1092, 1215), (1231, 1355), (1371, 1495)]
+S4_TR_COLS = [(851, 1018), (1032, 1194), (1209, 1370), (1385, 1545)]
+S4_TR_ROWS = [(154, 333), (349, 529), (544, 760), (773, 912)]
+S4_TILES = {
+    # grass (same panel/scale as the paths so they match)
+    'gt_grass0': ('p', 0, 0), 'gt_grass1': ('p', 0, 2), 'gt_grass2': ('p', 3, 0), 'gt_grass3': ('p', 3, 2),
+    # dirt paths
+    'gt_path_v': ('p', 1, 0), 'gt_path_v2': ('p', 1, 2), 'gt_path_h': ('p', 0, 1), 'gt_path_x': ('p', 1, 1),
+    # dirt area with grass edges (9-slice: other sides are mirrored copies)
+    'gt_dirt_tl': ('t', 0, 0), 'gt_dirt_t': ('t', 1, 0), 'gt_dirt_l': ('t', 0, 1), 'gt_dirt_l2': ('t', 0, 3),
+    'gt_dirt': ('t', 1, 3), 'gt_dirt2': ('t', 1, 2),
+    # ploughed soil
+    'gt_furrow': ('t', 2, 1), 'gt_soil_t': ('t', 2, 0),
+}
+
+
+def s4_tiles():
+    out = {}
+    for name, (panel, c, r) in S4_TILES.items():
+        cols, rows = (S4_PATH_COLS, S4_PATH_ROWS) if panel == 'p' else (S4_TR_COLS, S4_TR_ROWS)
+        (x0, x1), (y0, y1) = cols[c], rows[r]
+        im = sheets['s4'].crop((x0 + 3, y0 + 3, x1 - 2, y1 - 2)).convert('RGBA')
+        out[name] = im.resize((T * RES, T * RES), Image.LANCZOS)
+    # watered furrows: same tile, darker and a touch bluer
+    wet = out['gt_furrow'].copy()
+    px = wet.load()
+    for y in range(wet.height):
+        for x in range(wet.width):
+            r_, g_, b_, a_ = px[x, y]
+            px[x, y] = (int(r_ * 0.62), int(g_ * 0.58), int(b_ * 0.62) + 6, a_)
+    out['gt_furrow_wet'] = wet
+    return out
+
+
 def downscale(im, size=None, mult=1.0):
     if size is None:
         size = (max(1, round(im.width * SCALE * mult * RES)), max(1, round(im.height * SCALE * mult * RES)))
@@ -713,6 +751,7 @@ def main():
         else:
             images[name] = trim(downscale(cut_object(sh, (x0, y0, x1, y1)), mult=mult))
     images.update(cut_player()); native.update(k for k in images if k.startswith('pl_'))
+    images.update(s4_tiles()); native.update(S4_TILES); native.add('gt_furrow_wet')
     # crops render as 1 tile
     for name in list(images):
         if name.startswith('crop_'):

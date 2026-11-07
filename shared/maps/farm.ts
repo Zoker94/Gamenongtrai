@@ -2,16 +2,11 @@
 // RNG, so it is identical on client and server. Edit the zone coordinates
 // below to reshape the map.
 //
-// Layout (26x23 tiles). The whole farm is fenced; a cross of dirt roads
-// splits it into four clear zones:
-//
-//   +----------------------+----------------------+
-//   |  house yard          |  animal pen (fenced) |
-//   |  well, shipping bin  |  barn, silo, coop    |
-//   +------- road ---------+------ road --> town  |
-//   |  garden (fenced)     |  fish pond (painted  |
-//   |  field, greenhouse   |  scene: docks, lilies)|
-//   +--------- road to the park (south gate) -----+
+// Layout (30x22 tiles, built from the user's sheet-4 ground tiles):
+//   north: farmhouse + yard, barn, silo, windmill, orchard
+//   middle: dirt road west-east (exit -> town), crossroads
+//   south-west: crop field (dirt area with ploughed beds), greenhouse
+//   south-east: fish pond scene; path south (exit -> park)
 
 export const G = {
   Grass: 0, Dirt: 1, Water: 2, Stone: 3, Field: 4, Bridge: 5,
@@ -55,6 +50,8 @@ export interface GameMap {
   courts: Rect[];
   exits: Exit[];
   spawn: { x: number; y: number };
+  /** ground tile per cell (atlas name, optional '|h' '|v' '|hv' mirror) — tile-based maps */
+  tiles?: string[];
   /** terrain type at a fractional tile position (used for smooth rendering) */
   terrainAt: (x: number, y: number) => number;
   /** plots already growing on a brand-new farm */
@@ -90,58 +87,66 @@ function distToPolyline(px: number, py: number, pts: number[][]) {
 }
 
 export function buildFarm(): GameMap {
-  const W = 26, H = 23;
+  const W = 30, H = 22;
   const inb = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H;
+  const idx = (x: number, y: number) => y * W + x;
 
-  // ------------------------------------------------------------ zones
-  const FARM: Rect = { x0: 2, y0: 2, x1: 23, y1: 19 };          // perimeter fence
-  const PEN: Rect = { x0: 14, y0: 2, x1: 23, y1: 8 };           // animal pen (shares the perimeter)
-  const GARDEN: Rect = { x0: 2, y0: 11, x1: 11, y1: 19 };       // garden fence (shares the perimeter)
-  const FIELD: Rect = { x0: 4, y0: 12, x1: 10, y1: 14 };        // tillable soil
-  const HERBS: Rect = { x0: 8, y0: 16, x1: 10, y1: 17 };        // small herb/veg beds
-  const ROADS: number[][][] = [
-    [[6.5, 7.6], [6.5, 9.6], [12.5, 9.7], [26.5, 9.6]],         // porch -> road -> east gate (town)
-    [[12.5, 9.7], [12.6, 15], [12.5, 23.5]],                    // south gate (park)
-    [[17.8, 8.4], [17.8, 9.6], [18.1, 12.9]],                   // pen gate -> across the road -> pond dock
-    [[7.5, 10], [7.5, 11.4]],                                   // garden gate
+  // ------------------------------------------------------------- ground
+  const FIELD: Rect = { x0: 3, y0: 11, x1: 11, y1: 16 };          // dirt area incl. grassy rim
+  const BEDS: Rect = { x0: 4, y0: 12, x1: 10, y1: 15 };           // tillable interior
+  const ROAD_Y = 9;
+  const PATHS_V = [                                               // [x, y0, y1]
+    [6, 7, ROAD_Y], [15, 7, H - 1], [22, 8, 11],
   ];
+  const r = rng(20241107);
+  const pick = <T,>(a: T[]) => a[Math.floor(r() * a.length)];
 
-  // ------------------------------------------------------------ terrain
-  // Continuous terrain function (tile units): the client renders it at
-  // sub-tile resolution for smooth edges, the server samples it per tile.
-  const bbox = (pts: number[][], m: number) => {
-    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    for (const [x, y] of pts) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
-    return [x0 - m, y0 - m, x1 + m, y1 + m];
-  };
-  const roadBoxes = ROADS.map((r) => bbox(r, 2));
-  const inRect = (x: number, y: number, r: Rect) => x >= r.x0 && x < r.x1 + 1 && y >= r.y0 && y < r.y1 + 1;
-  const fine = (x: number, y: number, s: number) => wobble(x, y, s) + 0.35 * Math.sin(x * 2.9 + y * 2.1 + s);
+  const path = new Uint8Array(W * H);
+  for (let x = 2; x < W; x++) path[idx(x, ROAD_Y)] = 1;
+  for (const [x, y0, y1] of PATHS_V) for (let y = y0; y <= y1; y++) path[idx(x, y)] = 1;
+  const isPath = (x: number, y: number) => inb(x, y) && path[idx(x, y)] === 1;
 
-  const terrainAt = (x: number, y: number): number => {
-    let g: number = G.Grass;
-    // forest floor outside the fence
-    if (x < FARM.x0 + 0.3 || y < FARM.y0 + 0.3 || x > FARM.x1 + 0.7 || y > FARM.y1 + 0.7) g = G.DarkGrass;
-    if (inRect(x, y, FIELD) || inRect(x, y, HERBS)) return G.Field;
-    for (let i = 0; i < ROADS.length; i++) {
-      const b = roadBoxes[i];
-      if (x < b[0] || x > b[2] || y < b[1] || y > b[3]) continue;
-      const w = i >= 2 ? 0.6 : 0.95;
-      if (distToPolyline(x, y, ROADS[i]) <= w + fine(x, y, 1) * 0.18) g = G.Dirt;
-    }
-    if (inRect(x, y, { x0: 5, y0: 7, x1: 7, y1: 7 })) g = G.Stone;   // porch
-    return g;
-  };
-
+  const inRect = (x: number, y: number, q: Rect) => x >= q.x0 && x <= q.x1 && y >= q.y0 && y <= q.y1;
+  const tiles: string[] = new Array(W * H);
   const ground = new Uint8Array(W * H);
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) ground[y * W + x] = terrainAt(x + 0.5, y + 0.5);
-  const get = (x: number, y: number) => ground[y * W + x];
-  const set = (x: number, y: number, g: number) => { if (inb(x, y)) ground[y * W + x] = g; };
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      let t = r() < 0.82 ? 'gt_grass0' : r() < 0.7 ? 'gt_grass1' : r() < 0.6 ? 'gt_grass2' : 'gt_grass3';
+      let g: number = G.Grass;
+      if (inRect(x, y, FIELD)) {
+        g = G.Dirt;
+        const L = x === FIELD.x0, R = x === FIELD.x1, T = y === FIELD.y0, B = y === FIELD.y1;
+        if (T && L) t = 'gt_dirt_tl';
+        else if (T && R) t = 'gt_dirt_tl|h';
+        else if (B && L) t = 'gt_dirt_tl|v';
+        else if (B && R) t = 'gt_dirt_tl|hv';
+        else if (T) t = 'gt_dirt_t';
+        else if (B) t = 'gt_dirt_t|v';
+        else if (L) t = r() < 0.5 ? 'gt_dirt_l' : 'gt_dirt_l2';
+        else if (R) t = (r() < 0.5 ? 'gt_dirt_l' : 'gt_dirt_l2') + '|h';
+        else t = 'gt_dirt';
+        if (inRect(x, y, BEDS)) g = G.Field;
+      } else if (isPath(x, y)) {
+        g = G.Dirt;
+        const n = isPath(x, y - 1), s = isPath(x, y + 1), e = isPath(x + 1, y), w = isPath(x - 1, y);
+        if ((n || s) && (e || w)) t = 'gt_path_x';
+        else if (e || w) t = 'gt_path_h';
+        else t = r() < 0.5 ? 'gt_path_v' : 'gt_path_v2';
+      }
+      tiles[idx(x, y)] = t;
+      ground[idx(x, y)] = g;
+    }
+  const terrainAt = (x: number, y: number): number => {
+    const tx = Math.floor(x), ty = Math.floor(y);
+    return inb(tx, ty) ? ground[idx(tx, ty)] : G.Grass;
+  };
+  const get = (x: number, y: number) => ground[idx(x, y)];
+  const set = (x: number, y: number, g: number) => { if (inb(x, y)) ground[idx(x, y)] = g; };
 
   const reserved = new Uint8Array(W * H);
   const reserve = (x0: number, y0: number, x1: number, y1: number) => {
     for (let y = Math.max(0, Math.floor(y0)); y <= Math.min(H - 1, y1); y++)
-      for (let x = Math.max(0, Math.floor(x0)); x <= Math.min(W - 1, x1); x++) reserved[y * W + x] = 1;
+      for (let x = Math.max(0, Math.floor(x0)); x <= Math.min(W - 1, x1); x++) reserved[idx(x, y)] = 1;
   };
 
   // --------------------------------------------------------------- objects
@@ -151,163 +156,128 @@ export function buildFarm(): GameMap {
   const o = (s: string, x: number, y: number, f?: boolean) => {
     objects.push(f ? { s, x, y: y + 1, f } : { s, x, y: y + 1 });
   };
-  /** fence segments; `sides` limits which sides are drawn (shared sides are drawn once) */
-  const fence = (r: Rect, gaps: [number, number][] = [], sides = 'nswe') => {
-    const gap = (x: number, y: number) => gaps.some(([gx, gy]) => gx === x && gy === y);
-    for (let x = r.x0; x <= r.x1; x++) {
-      if (sides.includes('n') && !gap(x, r.y0)) o('fence_h', x, r.y0);
-      if (sides.includes('s') && !gap(x, r.y1)) o('fence_h', x, r.y1);
-    }
-    for (let y = r.y0 + 1; y < r.y1; y++) {
-      if (sides.includes('w') && !gap(r.x0, y)) o('fence_v', r.x0, y);
-      if (sides.includes('e') && !gap(r.x1, y)) o('fence_v', r.x1, y);
-    }
-  };
 
-  // --- fences: farm perimeter (gates east + south), pen, garden
-  fence(FARM, [[23, 9], [23, 10], [12, 19], [13, 19]]);
-  fence(PEN, [[17, 8], [18, 8]], 'sw');
-  fence(GARDEN, [[7, 11], [8, 11]], 'ne');
-  o('lamp_post', 23.4, 8.2);
-  o('lamp_post', 23.4, 11.2);
-  o('lamp_post', 11.4, 19.4);
-  o('lamp_post', 14.6, 19.4);
-  o('signpost', 24.6, 8.6);
-  o('signpost', 15.2, 20.6);
+  // --- farmhouse & yard (north-west)
+  o('house', 6, 6);
+  o('well', 2.8, 7.2);
+  o('bucket', 3.9, 7.6);
+  o('firewood', 2.6, 5.4);
+  o('barrel', 9.2, 6.4);
+  o('crate', 10.1, 6.6);
+  o('lamp_post', 5.2, 8);
+  o('lamp_post', 6.8, 8);
+  o('chest_gold', 8.4, 8);        // shipping bin
+  o('seed_bag', 9.6, 8);          // seed shop
+  o('flower_bush_r', 4, 8.3);
+  o('flowers_y', 7.9, 6.9);
+  o('bench', 11.6, 7.4);
+  o('tree_fruit', 11.2, 4.6);
+  o('tree_fruit', 13, 3.8);
+  reserve(2, 2, 13, 8);
 
-  // --- house yard (north-west)
-  o('house', 6.5, 6);
-  o('well', 3.4, 7.4);
-  o('bucket', 4.5, 7.6);
-  o('firewood', 3.4, 4.2);
-  o('logs', 3.6, 5.6);
-  o('barrel', 9.6, 5.4);
-  o('crate', 10.5, 5.4);
-  o('lamp_post', 4.6, 7.4);
-  o('lamp_post', 8.4, 7.4);
-  o('chest_gold', 9, 8);        // shipping bin
-  o('seed_bag', 10, 8);         // seed shop
-  o('notice', 11.2, 8.2);
-  o('tree_fruit', 12.6, 3.2);
-  o('flower_bush_r', 4.3, 6.3);
-  o('flowers_y', 8.9, 6.6);
-  o('bench', 11.6, 3.9);           // shady seat under the fruit tree
-  reserve(3, 2, 13, 8);
+  // --- barn, silo, windmill, coop (north-east)
+  o('barn_red', 15, 6);
+  o('hay_bale', 17.4, 7.3);
+  o('silo', 18.6, 6);
+  o('sack', 13.6, 8.2);
+  o('windmill', 22, 7.2);
+  o('cart', 19.6, 8.1);
+  o('coop_pen', 25.6, 6.6);
+  o('trough_feed', 24.2, 8.2);
+  o('hay_pile', 27.2, 8.1);
+  reserve(14, 2, 27, 8);
 
-  // --- animal pen (north-east): buildings line the back fence, the rest of
-  // the pen is left as open pasture for livestock. Troughs sit by the fence.
-  o('barn_red', 16.2, 3.9);
-  o('silo', 18.9, 3.9);
-  o('coop_small', 21.7, 3.7);
-  o('hay_pile', 14.9, 4.3);
-  o('trough_water', 15.4, 7.5);
-  o('trough_feed', 21.6, 7.5);
-  reserve(14, 2, 23, 8);
-
-  // --- garden (south-west)
-  o('scarecrow', 7, 13);
-  o('greenhouse', 5, 18.2);
-  o('planter_sun', 8.6, 18.4);
+  // --- crop field (south-west)
+  o('sign', 6, 10.3);             // field sign (covers the crossing stub)
+  o('scarecrow', 11, 12.4);
+  o('veg_crates', 12.6, 11.4);
+  o('tool_rack', 12.8, 13.6);
+  o('hay_pile', 12.6, 15.4);
+  o('greenhouse', 5.6, 18.6);
+  o('barrel_herb', 8.8, 18.2);
   o('planter_sun', 10.4, 18.4);
-  o('tool_rack', 9.8, 15);
-  o('hay_pile', 3.4, 15.4);       // compost heap
-  o('bucket', 7.4, 15.4);
-  o('veg_crates', 3.6, 16.6);
-  o('barrel_herb', 3.2, 11.8);
-  reserve(3, 11, 11, 19);
+  o('bucket', 2.8, 17.6);
+  reserve(2, 10, 14, 19);
 
-  // --- fish pond (south-east): a painted scene with bank, lily pads, reeds,
-  // three wooden docks, posts, a boat and a fishing spot. Its water mask
-  // (from the atlas) makes the water solid; docks and banks stay walkable.
-  const scenes: MapObject[] = [{ s: 'pond_scene', x: 17.75, y: 19 }];
-  o('sign', 15.4, 11.3);           // "Ao cá"
-  o('bench', 21.6, 11.5);
-  o('barrel', 20.2, 11.3);
-  o('fern', 13.8, 17.6);
-  o('flowers_lav', 22.6, 17.2);
-  reserve(14, 11, 23, 19);
+  // --- fish pond (south-east): painted scene from the user's pond sheet
+  const scenes: MapObject[] = [{ s: 'pond_scene', x: 22.2, y: 18.9 }];
+  o('lamp_tall', 21, 10.6);
+  o('lamp_tall', 23, 10.6);
+  o('bench', 18.4, 11);
+  o('barrel', 25.6, 11.1);
+  o('beehives', 27.2, 11.4);
+  o('flowers_lav', 16.8, 13.4);
+  o('fern', 16.6, 16.4);
+  o('rock_moss', 16.8, 18.8);
+  o('flower_bush_t', 19, 19.6);
+  o('flowers_y', 24.4, 19.7);
+  o('signpost', 16.4, 20.4);
+  o('signpost', 28.2, 8.2);
+  reserve(16, 10, 28, 20);
 
-  // keep roads, fields and water free of random stuff
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
-      const g = get(x, y);
-      if (g !== G.Grass && g !== G.DarkGrass) reserved[y * W + x] = 1;
-    }
-  for (const ob of objects) reserve(Math.floor(ob.x), ob.y - 1, Math.ceil(ob.x), ob.y - 1);
+  // keep paths, field and water free of random stuff
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (get(x, y) !== G.Grass) reserved[idx(x, y)] = 1;
+  for (const ob of objects) reserve(Math.floor(ob.x), Math.ceil(ob.y) - 1, Math.ceil(ob.x), Math.ceil(ob.y) - 1);
+  const free = (x: number, y: number) => inb(x, y) && !reserved[idx(x, y)] && get(x, y) === G.Grass;
 
-  const r = rng(20241107);
-  const pick = <T,>(a: T[]) => a[Math.floor(r() * a.length)];
-  const free = (x: number, y: number) =>
-    inb(x, y) && !reserved[y * W + x] && (get(x, y) === G.Grass || get(x, y) === G.DarkGrass);
-
-  // --- forest outside the fence (the southern row sits on the very edge)
-  const CLUMPS = ['trees_double', 'trees_cluster', 'tree_round'];
-  const TREES = ['tree_round', 'tree_green', 'tree_pine', 'tree_pine2', 'tree_big', 'tree_round', 'tree_green', 'tree_autumn'];
-  const outside = (x: number, y: number) => x < FARM.x0 || x > FARM.x1 || y < FARM.y0 || y > FARM.y1 + 1;
+  // --- forest around the farm (exits stay open)
+  const CLUMPS = ['trees_double', 'trees_cluster', 'tree_round', 'forest_pines'];
+  const TREES = ['tree_round', 'tree_green', 'tree_pine', 'tree_pine2', 'tree_big', 'tree_autumn', 'tree_round', 'tree_green'];
+  const exit = (x: number, y: number) => (Math.abs(y - ROAD_Y) <= 1 && x > W - 4) || (Math.abs(x - 15) <= 1 && y > H - 4);
+  const border = (x: number, y: number) => Math.min(x, y, W - 1 - x, (H - 1 - y) * 2);
   const placeTree = (name: string, x: number, y: number) => {
-    if (!free(x, y) || !outside(x, y)) return;
+    if (!free(x, y) || exit(x, y)) return;
     o(name, x + (r() - 0.5) * 0.4, y, r() < 0.5);
     reserve(x - 1, y - 1, x + 1, y);
   };
   for (let y = 1; y < H; y += 2)
     for (let x = 0; x < W; x += 2)
-      if (y < FARM.y1 && r() < 0.8) placeTree(pick(CLUMPS), x + Math.floor(r() * 2), y + Math.floor(r() * 2));
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) if (y <= FARM.y1 || y === H - 1) placeTree(pick(TREES), x, y);
+      if (border(x, y) <= 1 && r() < 0.8) placeTree(pick(CLUMPS), x + Math.floor(r() * 2), y + Math.floor(r() * 2));
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (border(x, y) <= 1) placeTree(pick(TREES), x, y);
 
-  // --- small greenery only in the forest strip outside the fence (inside stays tidy)
+  // --- small greenery: dense in the forest strip, sparse inside
   const SMALLS = ['flowers_o', 'flowers_y', 'flower_bush_y', 'flower_bush_r', 'bush_a', 'fern', 'rock_s1', 'stump', 'mushroom', 'pebbles'];
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++)
-      if (free(x, y) && outside(x, y) && r() < 0.6) { o(pick(SMALLS), x + (r() - 0.5) * 0.3, y, r() < 0.5); reserve(x, y, x, y); }
+      if (free(x, y) && r() < (border(x, y) <= 2 ? 0.6 : 0.12)) { o(pick(SMALLS), x + (r() - 0.5) * 0.3, y, r() < 0.5); reserve(x, y, x, y); }
 
-  // --- tiny ground details (baked into the ground layer, free at runtime)
-  const DECALS_OUT = ['d_flower_y', 'd_flower_w', 'd_flower_r', 'd_flower_o', 'd_clover', 'd_clover2', 'd_clover3',
-    'd_tuft', 'd_tuft2', 'd_leaves_g', 'd_leaves_o', 'd_pebbles', 'd_moss', 'd_moss2', 'd_mushroom'];
-  const DECALS_IN = ['d_tuft', 'd_tuft2', 'd_clover_s', 'd_sprouts', 'dec_tuft0', 'dec_tuft1', 'dec_tuft2', 'd_flower_w', 'd_flower_y'];
-  const DECALS_PEN = ['dec_tuft0', 'dec_tuft1', 'dec_tuft2', 'd_sprouts'];
-  const inPen = (x: number, y: number) => x > PEN.x0 && x < PEN.x1 && y > PEN.y0 && y < PEN.y1;
-  for (let i = 0; i < 420; i++) {
+  // --- ground details from the user's sheet (flowers, clover, leaves, pebbles)
+  const DECALS = ['d_flower_y', 'd_flower_w', 'd_flower_r', 'd_flower_o', 'd_clover', 'd_clover2', 'd_clover3',
+    'd_clover_s', 'd_sprouts', 'd_tuft', 'd_tuft2', 'd_leaves_g', 'd_leaves_o', 'd_pebbles', 'd_moss'];
+  for (let i = 0; i < 170; i++) {
     const x = r() * W, y = r() * H;
-    const tx = Math.floor(x), ty = Math.floor(y);
-    const g = get(tx, ty);
-    if (g !== G.Grass && g !== G.DarkGrass) continue;
-    const out = outside(tx, ty);
-    if (!out && r() < 0.55) continue; // sparser inside the farm
-    const set = out ? DECALS_OUT : inPen(x, y) ? DECALS_PEN : DECALS_IN;
-    decals.push({ s: pick(set), x: x - 0.5, y: y + 0.3 });
+    if (get(Math.floor(x), Math.floor(y)) !== G.Grass) continue;
+    decals.push({ s: pick(DECALS), x: x - 0.5, y: y + 0.3 });
   }
 
-  // objects standing on a field tile make it untillable
+  // objects standing on a bed tile make it untillable
   for (const ob of objects) {
-    const row = Math.ceil(ob.y) - 1, col = Math.floor(ob.x + 0.5); // tile holding the anchor
+    const row = Math.ceil(ob.y) - 1, col = Math.floor(ob.x + 0.5);
     if (inb(col, row) && get(col, row) === G.Field) set(col, row, G.Dirt);
   }
 
-  // a brand-new farm already has something growing
   const starter: StarterPlot[] = [];
   const row = (y: number, x0: number, x1: number, c: string, st: number) => {
     for (let x = x0; x <= x1; x++) if (get(x, y) === G.Field) starter.push({ x, y, c, s: st });
   };
   row(12, 4, 10, 'carrot', 3);
-  row(13, 4, 6, 'tomato', 2);
+  row(13, 4, 7, 'tomato', 2);
   row(13, 8, 10, 'strawberry', 1);
-  row(14, 4, 6, '', 0);
-  row(16, 8, 10, 'pumpkin', 3);
-  row(17, 8, 10, 'turnip', 1);
+  row(14, 4, 6, 'pumpkin', 3);
+  row(15, 4, 5, '', 0);
 
   return {
     id: 'farm',
     name: 'Nông trại',
-    w: W, h: H, ground, objects, decals, scenes, terrainAt, starter,
+    w: W, h: H, ground, objects, decals, scenes, tiles, terrainAt, starter,
     courts: [],
     exits: [
-      { x0: W - 1, y0: 8, x1: W - 1, y1: 11, to: 'town', label: 'Thành phố' },
-      { x0: 11, y0: H - 1, x1: 14, y1: H - 1, to: 'park', label: 'Công viên' },
+      { x0: W - 1, y0: ROAD_Y - 1, x1: W - 1, y1: ROAD_Y + 1, to: 'town', label: 'Thành phố' },
+      { x0: 14, y0: H - 1, x1: 16, y1: H - 1, to: 'park', label: 'Công viên' },
     ],
-    spawn: { x: 6, y: 9 },
+    spawn: { x: 6, y: 8 },
     spots: [
-      { id: 'ship', x: 9, y: 8 },
+      { id: 'ship', x: 8, y: 8 },
       { id: 'shop', x: 10, y: 8 },
     ],
   };
