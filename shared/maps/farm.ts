@@ -233,7 +233,8 @@ export function buildFarm(): GameMap {
   for (let i = 0; i < 70; i++) {
     const x = r() * W, y = r() * H;
     if (get(Math.floor(x), Math.floor(y)) !== G.Grass) continue;
-    decals.push({ s: pick(DECALS), x: x - 0.5, y: y + 0.3 });
+    // standing sprites (no collision): the player walks behind them and gets covered
+    objects.push({ s: pick(DECALS), x: x - 0.5, y: y + 0.3, f: r() < 0.5 });
   }
 
   // objects standing on a bed tile make it untillable

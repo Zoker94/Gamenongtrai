@@ -14,7 +14,7 @@ const rnd = Math.random;
 export function swayFor(name: string, x: number, y: number, t: number): number {
   let amp = 0, speed = 1.3;
   if (name.startsWith('tree') || name === 'forest_pines') amp = 0.022;
-  else if (name.startsWith('flower') || name === 'fern' || name === 'plant' || name.startsWith('bush')) { amp = 0.05; speed = 2.1; }
+  else if (name.startsWith('flower') || name.startsWith('d_') || name === 'fern' || name === 'plant' || name.startsWith('bush')) { amp = 0.05; speed = 2.1; }
   else if (name.startsWith('crop_')) { amp = 0.035; speed = 1.8; }
   else if (name === 'tallgrass_top') { amp = 0.08; speed = 2.4; }
   else return 0;

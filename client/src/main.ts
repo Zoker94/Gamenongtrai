@@ -53,7 +53,7 @@ ui.onBuy = (crop, n) => { if (store.act({ t: 'buy', crop, n })) ui.toast(`Đã m
 ui.onSell = (item, n) => {
   const have = store.st.inv[item] || 0;
   const k = Math.min(have, n);
-  if (store.act({ t: 'sell', item, n })) ui.toast(`+${k * CROPS[item].sellPrice} 🪙`);
+  if (store.act({ t: 'sell', item, n })) ui.toast(`+${k * CROPS[item].sellPrice} xu`);
 };
 ui.update(store.st);
 ui.setNet(false);

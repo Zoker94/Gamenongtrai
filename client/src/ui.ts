@@ -62,7 +62,7 @@ export class UI {
 
   /** Rebuild hotbar only when the inventory signature changes. */
   update(st: FarmState) {
-    this.coins.textContent = `🪙 ${st.coins}`;
+    this.coins.innerHTML = `<i class="coin"></i>${st.coins}`;
     const seeds = CROP_IDS.filter((c) => st.inv['seed:' + c]);
     const sig = seeds.map((c) => c + st.inv['seed:' + c]).join('|');
     if (sig === this.sig && this.slots.length) return;
@@ -113,9 +113,9 @@ export class UI {
     const rows = CROP_IDS.map((c) => {
       const d = CROPS[c];
       return `<div class="row"><span class="ic" data-ic="pc_${c}"></span>
-        <span class="nm">${d.name}<small>${d.stageSecs * 3}s · bán ${d.sellPrice}🪙</small></span>
+        <span class="nm">${d.name}<small>${d.stageSecs * 3}s · bán ${d.sellPrice}<i class="coin"></i></small></span>
         <span class="have">${st.inv['seed:' + c] || 0}</span>
-        <button data-buy="${c}" data-n="1" ${st.coins < d.seedPrice ? 'disabled' : ''}>${d.seedPrice}🪙</button>
+        <button data-buy="${c}" data-n="1" ${st.coins < d.seedPrice ? 'disabled' : ''}>${d.seedPrice}<i class="coin"></i></button>
         <button data-buy="${c}" data-n="5" ${st.coins < d.seedPrice * 5 ? 'disabled' : ''}>×5</button></div>`;
     }).join('');
     this.showPanel('Cửa hàng hạt giống', rows);
@@ -126,7 +126,7 @@ export class UI {
     const items = CROP_IDS.filter((c) => st.inv[c]);
     const rows = items.length
       ? items.map((c) => `<div class="row"><span class="ic" data-ic="pc_${c}"></span>
-          <span class="nm">${CROPS[c].name}<small>${CROPS[c].sellPrice}🪙 / cái</small></span>
+          <span class="nm">${CROPS[c].name}<small>${CROPS[c].sellPrice}<i class="coin"></i> / cái</small></span>
           <span class="have">${st.inv[c]}</span>
           <button data-sell="${c}" data-n="1">Bán 1</button>
           <button data-sell="${c}" data-n="999">Bán hết</button></div>`).join('')

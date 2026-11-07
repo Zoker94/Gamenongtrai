@@ -26,7 +26,7 @@ function makeCanvas(w: number, h: number): OffscreenCanvas | HTMLCanvasElement {
   return c;
 }
 
-const NO_SHADOW = /^(fence_|flowers_|dec_|leaves|pebbles|waterfall|cave|arena_floor|fern)/;
+const NO_SHADOW = /^(fence_|flowers_|dec_|d_|leaves|pebbles|waterfall|cave|arena_floor|fern)/;
 
 const hash = (x: number, y: number) => {
   let h = (x * 374761393 + y * 668265263) | 0;

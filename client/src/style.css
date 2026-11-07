@@ -246,3 +246,7 @@ body.touch #stick { background: rgba(255, 240, 200, .18); border: 3px solid rgba
   #avatar canvas { width: 40px; height: 40px; }
 }
 @media (max-width: 420px) { .box .row { grid-template-columns: 40px 1fr auto auto; } }
+
+.coin { display: inline-block; width: 14px; height: 14px; margin: 0 4px -2px 0; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff3a0, #f2c14e 45%, #b8860b); border: 2px solid #7a5200; vertical-align: baseline; }
+.box button .coin { margin: 0 0 -2px 4px; }

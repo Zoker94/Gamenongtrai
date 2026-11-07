@@ -48,6 +48,7 @@ export const FOOTPRINTS: Record<string, Box[]> = {
 export function footprintFor(name: string, w: number, h: number): Box[] {
   const fp = FOOTPRINTS[name];
   if (fp) return fp;
+  if (name.startsWith('d_') || name.startsWith('flowers_')) return NONE; // walk-through greenery
   if (name.startsWith('tree_')) return [[-7, -7, 14, 6]]; // trunk only
   const bw = Math.max(6, Math.round(w * 0.7));
   const bh = Math.max(4, Math.min(12, Math.round(h * 0.35)));
