@@ -1,0 +1,13 @@
+# Render Blueprint: Dashboard -> New -> Blueprint -> chọn repo này.
+services:
+  - type: web
+    name: gamenongtrai
+    runtime: node
+    plan: free
+    branch: ccr-2fccc319-u2ffz4
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: 22.18.0
