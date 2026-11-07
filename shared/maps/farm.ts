@@ -181,30 +181,27 @@ export function buildFarm(): GameMap {
   o('bucket', 4.5, 7.6);
   o('firewood', 3.4, 4.2);
   o('logs', 3.6, 5.6);
-  o('barrel', 9.5, 5.2);
-  o('barrel2', 10.3, 5.6);
-  o('crate', 11.4, 5.4);
+  o('barrel', 9.6, 5.4);
+  o('crate', 10.5, 5.4);
   o('lamp_post', 4.6, 7.4);
   o('lamp_post', 8.4, 7.4);
   o('chest_gold', 9, 8);        // shipping bin
   o('seed_bag', 10, 8);         // seed shop
   o('notice', 11.2, 8.2);
-  o('tree_fruit', 10.8, 3.6);
-  o('flower_bush_r', 4.2, 6.2);
-  o('flowers_y', 8.8, 6.6);
-  o('flowers_o', 5.2, 8.4);
-  o('bench', 12.4, 6.8);
+  o('tree_fruit', 12.6, 3.2);
+  o('flower_bush_r', 4.3, 6.3);
+  o('flowers_y', 8.9, 6.6);
+  o('bench', 11.6, 3.9);           // shady seat under the fruit tree
   reserve(3, 2, 13, 8);
 
-  // --- animal pen (north-east)
-  o('barn_red', 16.4, 5.6);
-  o('silo', 19.2, 5.6);
-  o('coop_small', 21.6, 6.4);
-  o('trough_water', 15.6, 7.4);
-  o('trough_feed', 20.4, 7.6);
-  o('hay_pile', 22.4, 4.4);
-  o('hay_bale', 21.4, 3.6);
-  o('bucket', 19.4, 7.6);
+  // --- animal pen (north-east): buildings line the back fence, the rest of
+  // the pen is left as open pasture for livestock. Troughs sit by the fence.
+  o('barn_red', 16.2, 3.9);
+  o('silo', 18.9, 3.9);
+  o('coop_small', 21.7, 3.7);
+  o('hay_pile', 14.9, 4.3);
+  o('trough_water', 15.4, 7.5);
+  o('trough_feed', 21.6, 7.5);
   reserve(14, 2, 23, 8);
 
   // --- garden (south-west)
@@ -224,15 +221,10 @@ export function buildFarm(): GameMap {
   // (from the atlas) makes the water solid; docks and banks stay walkable.
   const scenes: MapObject[] = [{ s: 'pond_scene', x: 17.75, y: 19 }];
   o('sign', 15.4, 11.3);           // "Ao cá"
-  o('sack', 14.4, 11.5);
-  o('bucket', 19.6, 11.6);
-  o('barrel', 20.6, 11.3);
-  o('bench', 22, 11.6);
-  o('flowers_y', 16.6, 11.2);
-  o('fern', 13.7, 17.6);
-  o('mushrooms', 13.7, 15.4);
-  o('flower_bush_t', 22.6, 14.6);
-  o('flowers_lav', 22.6, 17.4);
+  o('bench', 21.6, 11.5);
+  o('barrel', 20.2, 11.3);
+  o('fern', 13.8, 17.6);
+  o('flowers_lav', 22.6, 17.2);
   reserve(14, 11, 23, 19);
 
   // keep roads, fields and water free of random stuff
@@ -263,21 +255,27 @@ export function buildFarm(): GameMap {
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) if (y <= FARM.y1 || y === H - 1) placeTree(pick(TREES), x, y);
 
-  // --- small greenery on the remaining free grass (fills the gaps between zones)
+  // --- small greenery only in the forest strip outside the fence (inside stays tidy)
   const SMALLS = ['flowers_o', 'flowers_y', 'flower_bush_y', 'flower_bush_r', 'bush_a', 'fern', 'rock_s1', 'stump', 'mushroom', 'pebbles'];
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++)
-      if (free(x, y) && r() < 0.6) { o(pick(SMALLS), x + (r() - 0.5) * 0.3, y, r() < 0.5); reserve(x, y, x, y); }
+      if (free(x, y) && outside(x, y) && r() < 0.6) { o(pick(SMALLS), x + (r() - 0.5) * 0.3, y, r() < 0.5); reserve(x, y, x, y); }
 
   // --- tiny ground details (baked into the ground layer, free at runtime)
-  const DECALS = ['d_flower_y', 'd_flower_w', 'd_flower_r', 'd_flower_o', 'd_clover_s', 'd_clover', 'd_clover2',
-    'd_clover3', 'd_sprouts', 'd_sprouts', 'd_tuft', 'd_tuft2', 'd_tuft', 'd_leaves_g', 'd_leaves_o', 'd_pebbles',
-    'd_moss', 'd_moss2', 'd_mushroom', 'dec_tuft0', 'dec_tuft1', 'dec_tuft2'];
-  for (let i = 0; i < 260; i++) {
+  const DECALS_OUT = ['d_flower_y', 'd_flower_w', 'd_flower_r', 'd_flower_o', 'd_clover', 'd_clover2', 'd_clover3',
+    'd_tuft', 'd_tuft2', 'd_leaves_g', 'd_leaves_o', 'd_pebbles', 'd_moss', 'd_moss2', 'd_mushroom'];
+  const DECALS_IN = ['d_tuft', 'd_tuft2', 'd_clover_s', 'd_sprouts', 'dec_tuft0', 'dec_tuft1', 'dec_tuft2', 'd_flower_w', 'd_flower_y'];
+  const DECALS_PEN = ['dec_tuft0', 'dec_tuft1', 'dec_tuft2', 'd_sprouts'];
+  const inPen = (x: number, y: number) => x > PEN.x0 && x < PEN.x1 && y > PEN.y0 && y < PEN.y1;
+  for (let i = 0; i < 420; i++) {
     const x = r() * W, y = r() * H;
-    const g = get(Math.floor(x), Math.floor(y));
+    const tx = Math.floor(x), ty = Math.floor(y);
+    const g = get(tx, ty);
     if (g !== G.Grass && g !== G.DarkGrass) continue;
-    decals.push({ s: pick(DECALS), x: x - 0.5, y: y + 0.3 });
+    const out = outside(tx, ty);
+    if (!out && r() < 0.55) continue; // sparser inside the farm
+    const set = out ? DECALS_OUT : inPen(x, y) ? DECALS_PEN : DECALS_IN;
+    decals.push({ s: pick(set), x: x - 0.5, y: y + 0.3 });
   }
 
   // objects standing on a field tile make it untillable
