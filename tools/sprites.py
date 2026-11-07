@@ -154,4 +154,26 @@ SPRITES = {
 
     # ---- painted pond scene (sheet 3): bank, lily pads, reeds, docks, boat
     'pond_scene':     ('s3', 37, 88, 918, 726, 'scene', 1.1),
+
+    # ---- ground details (sheet 4), baked into the ground layer
+    'd_flower_y':     ('s4', 1832, 1064, 1902, 1186, 'obj'),
+    'd_flower_w':     ('s4', 1952, 1064, 2032, 1182, 'obj'),
+    'd_flower_r':     ('s4', 2082, 1064, 2162, 1182, 'obj'),
+    'd_clover_s':     ('s4', 2215, 1064, 2292, 1152, 'obj'),
+    'd_flower_o':     ('s4', 2342, 1064, 2432, 1172, 'obj'),
+    'd_clover':       ('s4', 2475, 1064, 2552, 1182, 'obj'),
+    'd_moss':         ('s4', 2588, 1064, 2692, 1162, 'obj'),
+    'd_clover2':      ('s4', 1822, 1236, 1902, 1322, 'obj'),
+    'd_clover3':      ('s4', 1942, 1236, 2032, 1322, 'obj'),
+    'd_mushroom':     ('s4', 2082, 1232, 2177, 1302, 'obj'),
+    'd_leaves_o':     ('s4', 2207, 1236, 2302, 1322, 'obj'),
+    'd_leaves_y':     ('s4', 2337, 1236, 2432, 1322, 'obj'),
+    'd_sprouts':      ('s4', 2467, 1236, 2562, 1322, 'obj'),
+    'd_moss2':        ('s4', 2588, 1236, 2702, 1322, 'obj'),
+    'd_leaves_g':     ('s4', 1826, 1376, 1902, 1442, 'obj'),
+    'd_leaves_b':     ('s4', 1946, 1376, 2042, 1462, 'obj'),
+    'd_pebbles':      ('s4', 2082, 1382, 2182, 1452, 'obj'),
+    'd_tuft':         ('s4', 2217, 1366, 2312, 1462, 'obj'),
+    'd_tuft2':        ('s4', 2342, 1366, 2442, 1462, 'obj'),
+    'd_bush_moss':    ('s4', 2467, 1366, 2572, 1462, 'obj'),
 }

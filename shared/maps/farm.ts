@@ -270,9 +270,10 @@ export function buildFarm(): GameMap {
       if (free(x, y) && r() < 0.6) { o(pick(SMALLS), x + (r() - 0.5) * 0.3, y, r() < 0.5); reserve(x, y, x, y); }
 
   // --- tiny ground details (baked into the ground layer, free at runtime)
-  const DECALS = ['dec_flower_w0', 'dec_flower_w1', 'dec_flower_y0', 'dec_flower_y1', 'dec_flower_p0', 'dec_flower_b0',
-    'dec_flower_r0', 'dec_tuft0', 'dec_tuft1', 'dec_tuft2', 'dec_tuft0', 'dec_tuft1', 'dec_clover', 'dec_pebble'];
-  for (let i = 0; i < 700; i++) {
+  const DECALS = ['d_flower_y', 'd_flower_w', 'd_flower_r', 'd_flower_o', 'd_clover_s', 'd_clover', 'd_clover2',
+    'd_clover3', 'd_sprouts', 'd_sprouts', 'd_tuft', 'd_tuft2', 'd_tuft', 'd_leaves_g', 'd_leaves_o', 'd_pebbles',
+    'd_moss', 'd_moss2', 'd_mushroom', 'dec_tuft0', 'dec_tuft1', 'dec_tuft2'];
+  for (let i = 0; i < 260; i++) {
     const x = r() * W, y = r() * H;
     const g = get(Math.floor(x), Math.floor(y));
     if (g !== G.Grass && g !== G.DarkGrass) continue;

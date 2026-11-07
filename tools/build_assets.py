@@ -20,6 +20,7 @@ sheets = {
     's1': Image.open(os.path.join(ROOT, 'assets/source/sheet1.png')).convert('RGB'),
     's2': Image.open(os.path.join(ROOT, 'assets/source/sheet2.png')).convert('RGB'),
     's3': Image.open(os.path.join(ROOT, 'assets/source/sheet3.png')).convert('RGB'),
+    's4': Image.open(os.path.join(ROOT, 'assets/source/sheet4.png')).convert('RGB'),
 }
 
 
@@ -682,11 +683,14 @@ def main():
         images[f'tile_grassd{i}'] = make_dark_grass(300 + i)
     images['tile_sand'] = make_sand(400)
     images['tile_field'] = make_field(410)
-    # real painted ground textures (sheet 3), drawn as repeating patterns
-    images['tex_dirt'] = make_bombed_texture('s3', (1342, 254, 1484, 396), (44, 44), seed=7)    # pebbly path dirt
-    images['tex_field'] = make_bombed_texture('s3', (1005, 254, 1160, 396), (44, 40), seed=9)   # dark garden soil
-    images['tex_cobble'] = make_texture('s3', (415, 1010, 515, 1190), (36, 64))   # cobblestone yard
-    images['tile_soil'] = downscale(sheets['s3'].crop((1174, 98, 1326, 232)).convert('RGBA'), (T, T))  # ploughed furrows
+    # painted ground textures (sheet 4: one consistent palette for grass + soil)
+    images['tex_grass'] = make_bombed_texture('s4', (55, 355, 182, 505), (34, 40), seed=3)
+    images['tex_grassd'] = make_bombed_texture('s4', (228, 360, 362, 505), (36, 39), patch=18, seed=5)
+    images['tex_tall'] = make_bombed_texture('s4', (414, 165, 558, 318), (38, 41), patch=18, seed=6)
+    images['tex_dirt'] = make_bombed_texture('s4', (1042, 782, 1175, 895), (36, 30), seed=7)
+    images['tex_field'] = make_bombed_texture('s4', (1402, 252, 1530, 325), (34, 20), patch=14, seed=9)
+    images['tex_cobble'] = make_seamless(sheets['s4'].crop((1400, 782, 1530, 895)).convert('RGBA').resize((40, 34), Image.BOX))
+    images['tile_soil'] = downscale(sheets['s4'].crop((1217, 362, 1348, 505)).convert('RGBA'), (T, T))  # ploughed furrows
     images['tile_soil_wet'] = make_watered(images['tile_soil'])
     images.update(make_decals())
     images['fence_v'] = make_fence_v(images['fence_post'])
