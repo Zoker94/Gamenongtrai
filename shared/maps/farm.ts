@@ -8,7 +8,7 @@
 // needs: size, tillable bed tiles, exits, interactive spots and spawn.
 //
 //   north-west: barn + water tower      north: chicken yard, cow pen, pig pen
-//   west: house with patio, well        centre: six crop beds + scarecrow
+//   west: house with patio, well        centre: seven crop beds
 //   south: notice board (seed shop), gate (exit -> park), mailbox (shipping)
 //   east: fish pond with dock and boat  north road (exit -> town)
 
@@ -80,8 +80,6 @@ export function buildFarm(): GameMap {
   const terrainAt = (x: number, y: number): number => (inBed(x, y) ? G.Field : G.Grass);
   const ground = new Uint8Array(W * H);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) ground[y * W + x] = terrainAt(x + 0.5, y + 0.5);
-  // the scarecrow stands on the bottom row of the second bed
-  for (const x of [17, 18]) ground[9 * W + x] = G.Grass;
 
   const starter: StarterPlot[] = [];
   const bed = (i: number, rows: [string, number][]) => {
@@ -91,7 +89,7 @@ export function buildFarm(): GameMap {
   // like the reference picture: furrowed beds are sown, the two plain beds
   // top-right are freshly dug and empty
   bed(0, [['carrot', 3], ['carrot', 2]]);
-  bed(1, [['strawberry', 2]]);
+  bed(1, [['strawberry', 2], ['strawberry', 1]]);
   bed(4, [['turnip', 2], ['turnip', 1], ['tomato', 2], ['tomato', 1]]);
   bed(5, [['eggplant', 2], ['eggplant', 1], ['carrot', 1], ['', 0]]);
   bed(6, [['pumpkin', 3], ['pumpkin', 2], ['tomato', 3], ['', 0]]);

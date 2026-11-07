@@ -173,60 +173,7 @@ def main():
                     if d_edge == 0: col = (122, 65, 41)
                 ip[vx0 + x, vy0 + y] = col
 
-    # ---- 5. scarecrow back, standing between the bed rows
-    sc = base.crop(orect(862, 528, 932, 642))
-    sx, sy = 576 - sc.width // 2, 350 - sc.height
-    # keep only the scarecrow: flood-fill the background (sand, leaves of the
-    # beds around it, soil) inward from the crop border
-    from collections import deque
-    sp = sc.load()
-    mask = Image.new('L', sc.size, 255)
-    mp = mask.load()
-
-    def bgpx(p_):
-        r_, g_, b_ = p_
-        sandish = abs(r_ - 215) + abs(g_ - 162) + abs(b_ - 75) < 70
-        leafy = g_ > r_ + 10 and g_ > b_ + 25
-        soil = r_ > g_ + 25 and g_ < 110 and b_ < 85 and r_ < 175
-        return sandish or leafy or soil
-    q = deque([(x, 0) for x in range(sc.width)] + [(x, sc.height - 1) for x in range(sc.width)] +
-              [(0, y) for y in range(sc.height)] + [(sc.width - 1, y) for y in range(sc.height)])
-    while q:
-        x, y = q.popleft()
-        if mp[x, y] == 0 or not bgpx(sp[x, y]):
-            continue
-        mp[x, y] = 0
-        for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
-            if 0 <= nx < sc.width and 0 <= ny < sc.height and mp[nx, ny]:
-                q.append((nx, ny))
-    # the straw hat and face are the same colour as the sand: keep them by shape
-    for y in range(sc.height):
-        for x in range(sc.width):
-            if ((x - 22) / 17.5) ** 2 + ((y - 13) / 9.5) ** 2 <= 1 or ((x - 22) / 9) ** 2 + ((y - 27) / 7) ** 2 <= 1:
-                mp[x, y] = 255
-    for y in range(sc.height):
-        for x in range(sc.width):
-            r_, g_, b_ = sp[x, y]
-            if 19 <= x <= 25 and y >= 52 and r_ < 140:       # the wooden pole
-                mp[x, y] = 255
-            if g_ > r_ + 5 and g_ > b_ + 15:                 # no green on a scarecrow
-                mp[x, y] = 0
-    # drop small detached specks (bits of crops at the crop edges)
-    lab = {}
-    for y in range(sc.height):
-        for x in range(sc.width):
-            if mp[x, y] and (x, y) not in lab:
-                comp, st = [], [(x, y)]
-                lab[(x, y)] = 1
-                while st:
-                    a_, b2 = st.pop(); comp.append((a_, b2))
-                    for nx, ny in ((a_ + 1, b2), (a_ - 1, b2), (a_, b2 + 1), (a_, b2 - 1)):
-                        if 0 <= nx < sc.width and 0 <= ny < sc.height and mp[nx, ny] and (nx, ny) not in lab:
-                            lab[(nx, ny)] = 1; st.append((nx, ny))
-                if len(comp) < 60:
-                    for a_, b2 in comp:
-                        mp[a_, b2] = 0
-    img.paste(sc, (sx, sy), mask)
+    # ---- 5. (no scarecrow in the crop area: the original one was painted over with sand in step 1)
 
     # ---- 6. fisherman on the dock: clean water + rebuild the dock end
     fx0, fy0, fx1, fy1 = orect(1486, 714, 1668, 870)
@@ -282,11 +229,6 @@ def main():
         for cy in range(max(0, b // CELL), min(ch, e // CELL + 1)):
             for cx in range(max(0, a // CELL), min(cw, c // CELL + 1)):
                 solid[cy][cx] = 0
-
-    # scarecrow standing between the bed rows (output px)
-    for cy in range(338 // CELL, 348 // CELL + 1):
-        for cx in range(568 // CELL, 584 // CELL + 1):
-            solid[cy][cx] = 1
 
     meta = {'w': OW, 'h': OH, 'cell': CELL, 'mask': [''.join(map(str, row)) for row in solid]}
     with open(os.path.join(OUT, 'farm_bg.json'), 'w') as f:
