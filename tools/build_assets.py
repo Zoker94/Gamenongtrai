@@ -846,12 +846,29 @@ def main():
             images[name] = downscale(sheets[sh].crop((x0, y0, x1, y1)).convert('RGBA'), (T * RES, T * RES))
         elif kind == 'scene':
             im = close_scene(downscale(cut_scene(sh, (x0, y0, x1, y1)), mult=mult))
-            if name == 'pond_scene':  # drop the muddy path patch in the bottom-left corner of the painting
-                cp = im.load()
-                for yy in range(int(im.height * 0.66), im.height):
-                    for xx in range(0, 26 * RES):
-                        if not is_water(cp[xx, yy]):
-                            cp[xx, yy] = (0, 0, 0, 0)
+            if name == 'pond_scene':
+                # keep only the pond itself: drops the leftover strip of the painted
+                # mud path and loose grass specks around it
+                drop_border_fragments(im, keep_only_big=True)
+                ap = im.load()
+                lab = {}
+                comps = []
+                for sy in range(im.height):
+                    for sx in range(im.width):
+                        if ap[sx, sy][3] and (sx, sy) not in lab:
+                            st, comp = [(sx, sy)], []
+                            lab[(sx, sy)] = 1
+                            while st:
+                                x_, y_ = st.pop(); comp.append((x_, y_))
+                                for nx, ny in ((x_ + 1, y_), (x_ - 1, y_), (x_, y_ + 1), (x_, y_ - 1)):
+                                    if 0 <= nx < im.width and 0 <= ny < im.height and ap[nx, ny][3] and (nx, ny) not in lab:
+                                        lab[(nx, ny)] = 1; st.append((nx, ny))
+                            comps.append(comp)
+                big = max(len(c) for c in comps)
+                for c in comps:
+                    if len(c) < big * 0.05:
+                        for x_, y_ in c:
+                            ap[x_, y_] = (0, 0, 0, 0)
             # pad so the size is a multiple of the 4px collision cell (in game px)
             g = 4 * RES
             pw, ph = -(-im.width // g) * g, -(-im.height // g) * g

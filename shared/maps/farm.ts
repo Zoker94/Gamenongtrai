@@ -222,20 +222,10 @@ export function buildFarm(): GameMap {
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (border(x, y) <= 1) placeTree(pick(TREES), x, y);
 
   // --- small greenery: dense in the forest strip, sparse inside
-  const SMALLS = ['flowers_o', 'flowers_y', 'flowers_lav', 'flower_bush_y', 'flower_bush_r', 'flower_bush_t', 'fern', 'd_mushroom'];
+  const SMALLS = ['flower_bush_y', 'flower_bush_r', 'flower_bush_t', 'bush_a'];
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++)
-      if (free(x, y) && r() < (border(x, y) <= 2 ? 0.5 : 0.06)) { o(pick(SMALLS), x + (r() - 0.5) * 0.3, y, r() < 0.5); reserve(x, y, x, y); }
-
-  // --- ground details from the user's sheet (flowers, clover, leaves, pebbles)
-  const DECALS = ['d_flower_y', 'd_flower_w', 'd_flower_r', 'd_flower_o', 'd_clover', 'd_clover2', 'd_clover3',
-    'd_sprouts', 'd_tuft', 'd_tuft2', 'd_tuft', 'd_tuft2'];
-  for (let i = 0; i < 70; i++) {
-    const x = r() * W, y = r() * H;
-    if (get(Math.floor(x), Math.floor(y)) !== G.Grass) continue;
-    // standing sprites (no collision): the player walks behind them and gets covered
-    objects.push({ s: pick(DECALS), x: x - 0.5, y: y + 0.3, f: r() < 0.5 });
-  }
+      if (free(x, y) && border(x, y) <= 1 && r() < 0.35) { o(pick(SMALLS), x + (r() - 0.5) * 0.3, y, r() < 0.5); reserve(x, y, x, y); }
 
   // objects standing on a bed tile make it untillable
   for (const ob of objects) {
