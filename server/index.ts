@@ -88,7 +88,7 @@ async function loadFarm(id: string): Promise<FarmState> {
     const st = JSON.parse(await readFile(join(SAVES, id + '.json'), 'utf8')) as FarmState;
     if (st && st.plots && st.inv) return st;
   } catch { /* new player */ }
-  return newFarm();
+  return newFarm(farmMap.starter);
 }
 
 async function saveFarm(id: string, s: Session) {

@@ -45,7 +45,7 @@ client/            game chạy trên trình duyệt (TypeScript + Canvas 2D, kh�
 server/index.ts    máy chủ Node: phục vụ file tĩnh (brotli/gzip, cache) + WebSocket /ws
 shared/            code dùng chung cho client và server
   rules.ts         luật chơi: cây trồng, xới, gieo, tưới, thu hoạch, mua bán
-  maps/farm.ts     bản đồ nông trại (40×30 ô), địa hình là hàm liên tục terrainAt()
+  maps/farm.ts     bản đồ nông trại (24×20 ô, gọn như một màn hình), địa hình là hàm liên tục terrainAt()
 ```
 
 ## Tối ưu để nhẹ và mượt

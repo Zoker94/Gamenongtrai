@@ -14,7 +14,7 @@ const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true })!;
 const atlas = await loadAtlas();
 const map = buildFarm();
 const world = new World(map, atlas);
-const store = new Store((x, y) => isTillable(map, x, y));
+const store = new Store((x, y) => isTillable(map, x, y), map.starter);
 const ui = new UI(atlas);
 const input = new Input(canvas, document.getElementById('stick')!, document.getElementById('knob')!, document.getElementById('act')!);
 const player = new Player(map.spawn.x * TILE + TILE / 2, map.spawn.y * TILE + TILE - 4);

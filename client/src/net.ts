@@ -1,4 +1,4 @@
-import { type Action, type FarmState, applyAction, growAll, newFarm } from '../../shared/rules.ts';
+import { type Action, type FarmState, type StarterPlot, applyAction, growAll, newFarm } from '../../shared/rules.ts';
 
 const LS_ID = 'gnt_id';
 const LS_FARM = 'gnt_farm';
@@ -38,11 +38,11 @@ export class Store {
   onError: (msg: string) => void = () => {};
   onNet: (online: boolean) => void = () => {};
 
-  constructor(canTill: (x: number, y: number) => boolean) {
+  constructor(canTill: (x: number, y: number) => boolean, starter: StarterPlot[] = []) {
     this.canTill = canTill;
     let st: FarmState | null = null;
     try { st = JSON.parse(localStorage.getItem(LS_FARM) || 'null'); } catch { /* ignore */ }
-    this.st = st && st.plots ? st : newFarm();
+    this.st = st && st.plots ? st : newFarm(starter);
     this.connect();
   }
 
