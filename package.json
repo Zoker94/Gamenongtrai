@@ -1,0 +1,25 @@
+{
+  "name": "gamenongtrai",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.js",
+    "build": "vite build",
+    "start": "node server/index.ts",
+    "typecheck": "tsc --noEmit",
+    "assets": "python3 tools/build_assets.py"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/ws": "^8.18.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.6"
+  },
+  "dependencies": {
+    "ws": "^8.22.1"
+  }
+}

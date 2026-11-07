@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+  <meta name="theme-color" content="#1d2330" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>Nông Trại Sủng Vật</title>
+  <link rel="preload" href="/assets/atlas.png" as="fetch" crossorigin />
+  <link rel="preload" href="/assets/atlas.json" as="fetch" crossorigin />
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div id="hud">
+    <div id="top">
+      <div class="pill" id="coins"></div>
+      <div class="pill" id="place">Nông trại</div>
+      <div class="pill" id="net" title="Trạng thái kết nối">…</div>
+    </div>
+    <div id="toast"></div>
+    <div id="hotbar"></div>
+    <div id="stick"><div id="knob"></div></div>
+    <button id="act" aria-label="Hành động">✋</button>
+    <div id="panel" hidden></div>
+  </div>
+  <div id="loading">Đang tải…</div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

@@ -1,0 +1,66 @@
+export type Frame = [x: number, y: number, w: number, h: number];
+
+export interface Atlas {
+  img: CanvasImageSource;
+  frames: Record<string, Frame>;
+}
+
+export async function loadAtlas(base = '/assets/'): Promise<Atlas> {
+  const [meta, blob] = await Promise.all([
+    fetch(base + 'atlas.json').then((r) => r.json()),
+    fetch(base + 'atlas.png').then((r) => r.blob()),
+  ]);
+  // createImageBitmap decodes off the main thread where supported.
+  let img: CanvasImageSource;
+  if ('createImageBitmap' in window) img = await createImageBitmap(blob);
+  else {
+    const el = new Image();
+    el.src = URL.createObjectURL(blob);
+    await el.decode();
+    img = el;
+  }
+  return { img, frames: meta.frames };
+}
+
+/** Draw sprite with its bottom-centre at (x, y). */
+export function drawAnchored(
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  a: Atlas, name: string, x: number, y: number, flip = false,
+) {
+  const f = a.frames[name];
+  if (!f) return;
+  const dx = Math.round(x - f[2] / 2), dy = Math.round(y - f[3]);
+  if (flip) {
+    ctx.save();
+    ctx.translate(dx + f[2], dy);
+    ctx.scale(-1, 1);
+    ctx.drawImage(a.img, f[0], f[1], f[2], f[3], 0, 0, f[2], f[3]);
+    ctx.restore();
+  } else {
+    ctx.drawImage(a.img, f[0], f[1], f[2], f[3], dx, dy, f[2], f[3]);
+  }
+}
+
+/** Draw sprite with top-left at (x, y). */
+export function drawAt(
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  a: Atlas, name: string, x: number, y: number,
+) {
+  const f = a.frames[name];
+  if (f) ctx.drawImage(a.img, f[0], f[1], f[2], f[3], x, y, f[2], f[3]);
+}
+
+/** Small standalone canvas with one sprite, for DOM icons. */
+export function iconCanvas(a: Atlas, name: string, size = 32): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const f = a.frames[name];
+  if (f) {
+    const ctx = c.getContext('2d')!;
+    ctx.imageSmoothingEnabled = false;
+    const s = Math.min(size / f[2], size / f[3]);
+    const w = Math.round(f[2] * s), h = Math.round(f[3] * s);
+    ctx.drawImage(a.img, f[0], f[1], f[2], f[3], (size - w) >> 1, (size - h) >> 1, w, h);
+  }
+  return c;
+}
