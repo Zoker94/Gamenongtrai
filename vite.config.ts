@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   root: 'client',
+  define: { __BUILD_ID__: JSON.stringify(Date.now().toString(36)) },
   publicDir: 'public',
   build: {
     outDir: '../dist',

@@ -17,7 +17,12 @@ html, body {
   touch-action: none; overscroll-behavior: none;
 }
 #game { display: block; position: fixed; inset: 0; image-rendering: pixelated; image-rendering: crisp-edges; }
-#loading { position: fixed; inset: 0; display: grid; place-items: center; font-size: 18px; color: var(--muted); }
+#loading { position: fixed; inset: 0; display: grid; place-items: center; font-size: 15px; color: var(--muted); background: var(--bg); z-index: 40; }
+#loading .lbox { display: grid; gap: 10px; justify-items: center; width: min(280px, 80vw); }
+#loading b { font-size: 22px; color: var(--gold); }
+#loading .bar { width: 100%; height: 10px; border-radius: 6px; background: #2b3142; border: 2px solid var(--line); overflow: hidden; }
+#loading .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .15s; }
+#loading button { font: inherit; font-weight: 700; color: var(--text); background: #5a7a3a; border: 2px solid #8fbf5a; border-radius: 8px; padding: 8px 14px; }
 
 #hud { position: fixed; inset: 0; pointer-events: none; }
 #hud > * { pointer-events: auto; }

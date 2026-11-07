@@ -44,7 +44,7 @@ export class World {
   readonly pxW: number;
   readonly pxH: number;
   readonly objects: Placed[] = [];
-  private chunks: (OffscreenCanvas | HTMLCanvasElement)[] = [];
+  private chunks: CanvasImageSource[] = [];
   private cw: number;
   private ch: number;
   /** collision boxes [x, y, w, h] in world px */
@@ -52,7 +52,7 @@ export class World {
   /** per-tile list of box indices */
   private grid: number[][];
 
-  constructor(map: GameMap, atlas: Atlas) {
+  constructor(map: GameMap, atlas: Atlas, cached: ImageBitmap[] | null = null) {
     this.map = map;
     this.atlas = atlas;
     this.pxW = map.w * TILE;
@@ -79,7 +79,9 @@ export class World {
       for (let y = Math.max(0, y0); y <= Math.min(map.h - 1, y1); y++)
         for (let x = Math.max(0, x0); x <= Math.min(map.w - 1, x1); x++) this.grid[y * map.w + x].push(i);
     }
-    this.renderChunks();
+    this.buildFine();
+    if (cached && cached.length === this.cw * this.ch) this.chunks = cached;
+    else this.renderChunks();
   }
 
   private place(o: MapObject, boxes: number[]) {
@@ -163,8 +165,21 @@ export class World {
     }
   }
 
+  /** true when the ground art was freshly rendered (worth caching) */
+  get rendered() { return this.chunks.length > 0 && !(this.chunks[0] instanceof ImageBitmap); }
+
+  /** Encode the rendered chunks (for the IndexedDB cache). */
+  async chunkBlobs(): Promise<Blob[]> {
+    const out: Blob[] = [];
+    for (const c of this.chunks) {
+      if (typeof OffscreenCanvas !== 'undefined' && c instanceof OffscreenCanvas) out.push(await c.convertToBlob({ type: 'image/webp', quality: 0.95 }));
+      else out.push(await new Promise<Blob>((res, rej) => (c as HTMLCanvasElement).toBlob((b) => (b ? res(b) : rej(new Error('toBlob'))), 'image/webp', 0.95)));
+      await new Promise((r) => setTimeout(r, 0)); // keep the game responsive
+    }
+    return out;
+  }
+
   private renderChunks() {
-    this.buildFine();
     const CPC = CHUNK_PX / CELL; // cells per chunk side
     // chunks are rendered at the atlas density so the ground stays sharp
     const R = this.atlas.res;

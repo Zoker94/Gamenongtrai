@@ -8,8 +8,6 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <title>Nông Trại Sủng Vật</title>
-  <link rel="preload" href="/assets/atlas.webp" as="fetch" crossorigin />
-  <link rel="preload" href="/assets/atlas.json" as="fetch" crossorigin />
 </head>
 <body>
   <canvas id="game"></canvas>
@@ -32,7 +30,7 @@
     <div id="panel" hidden></div>
   </div>
   <div id="rotate"><div class="phone"></div><p>Hãy xoay ngang điện thoại để chơi</p></div>
-  <div id="loading">Đang tải…</div>
+  <div id="loading"><div class="lbox"><b>Nông Trại</b><div class="bar"><i id="lbar"></i></div><span id="ltext">Đang tải…</span></div></div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

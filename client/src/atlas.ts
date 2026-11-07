@@ -11,10 +11,43 @@ export interface Atlas {
   masks: Record<string, string[]>;
 }
 
-export async function loadAtlas(base = '/assets/'): Promise<Atlas> {
+/** fetch with retries (flaky mobile networks, a server that is waking up). */
+async function fetchRetry(url: string, tries = 5): Promise<Response> {
+  let wait = 600;
+  for (let i = 0; ; i++) {
+    try {
+      const r = await fetch(url);
+      if (r.ok) return r;
+      if (i >= tries - 1) throw new Error(`HTTP ${r.status}`);
+    } catch (e) {
+      if (i >= tries - 1) throw e;
+    }
+    await new Promise((res) => setTimeout(res, wait));
+    wait = Math.min(wait * 2, 5000);
+  }
+}
+
+/** Read a response body as a Blob, reporting progress 0..1. */
+async function readWithProgress(r: Response, onProgress?: (p: number) => void): Promise<Blob> {
+  const total = Number(r.headers.get('content-length')) || 0;
+  if (!r.body || !total || !onProgress) return r.blob();
+  const reader = r.body.getReader();
+  const parts: BlobPart[] = [];
+  let got = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    parts.push(value as BlobPart);
+    got += value.length;
+    onProgress(Math.min(1, got / total));
+  }
+  return new Blob(parts, { type: r.headers.get('content-type') || 'image/webp' });
+}
+
+export async function loadAtlas(base = '/assets/', onProgress?: (p: number) => void): Promise<Atlas> {
   const [meta, blob] = await Promise.all([
-    fetch(base + 'atlas.json').then((r) => r.json()),
-    fetch(base + 'atlas.webp').then((r) => r.blob()),
+    fetchRetry(base + 'atlas.json').then((r) => r.json()),
+    fetchRetry(base + 'atlas.webp').then((r) => readWithProgress(r, onProgress)),
   ]);
   // createImageBitmap decodes off the main thread where supported.
   let img: CanvasImageSource;

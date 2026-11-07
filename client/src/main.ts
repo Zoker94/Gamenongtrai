@@ -3,6 +3,7 @@ import { buildFarm, isTillable } from '../../shared/maps/farm.ts';
 import { CROPS, RIPE, key, type Plot } from '../../shared/rules.ts';
 import { drawAnchored, drawAt, loadAtlas } from './atlas.ts';
 import { Effects, swayFor } from './effects.ts';
+import { loadGround, saveGround } from './groundcache.ts';
 import { Input } from './input.ts';
 import { Store } from './net.ts';
 import { Player } from './player.ts';
@@ -12,9 +13,29 @@ import { TILE, World } from './world.ts';
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true })!;
 
-const atlas = await loadAtlas();
+const lbar = document.getElementById('lbar') as HTMLElement;
+const ltext = document.getElementById('ltext') as HTMLElement;
 const map = buildFarm();
-const world = new World(map, atlas);
+let atlas: Awaited<ReturnType<typeof loadAtlas>>;
+let cachedGround: ImageBitmap[] | null;
+try {
+  [atlas, cachedGround] = await Promise.all([
+    loadAtlas('/assets/', (p) => { lbar.style.width = Math.round(p * 90) + '%'; }),
+    loadGround(map.id),
+  ]);
+} catch {
+  ltext.textContent = 'Không tải được dữ liệu game.';
+  const b = document.createElement('button');
+  b.textContent = 'Thử lại';
+  b.onclick = () => location.reload();
+  ltext.after(b);
+  throw new Error('load failed');
+}
+ltext.textContent = 'Đang dựng bản đồ…';
+lbar.style.width = '95%';
+await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0))); // let the text paint
+const world = new World(map, atlas, cachedGround);
+if (world.rendered) setTimeout(() => { void world.chunkBlobs().then((b) => saveGround(map.id, b)); }, 3000);
 const store = new Store((x, y) => isTillable(map, x, y), map.starter);
 const ui = new UI(atlas);
 const input = new Input(canvas, document.getElementById('stick')!, document.getElementById('knob')!, document.getElementById('act')!);
