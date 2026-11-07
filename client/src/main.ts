@@ -274,25 +274,59 @@ function roundRect(x: number, y: number, w: number, h: number, r: number) {
 }
 /** A planting plot: 0 = barren, 1 = tilled, 2 = watered. Textures come from the
  *  ploughed-soil tile of the user's sheet, clipped to a rounded square. */
-function drawPlot(x: number, y: number, c: number, state: number) {
+function drawPlot(x: number, y: number, c: number, state: number, seed: number, time: number) {
   const g = 1.5, r = 5, w = c - g * 2;
-  // soft shadow / rim
+  const rnd = (i: number) => { const v = Math.sin(seed * 12.9898 + i * 78.233) * 43758.5453; return v - Math.floor(v); };
+  // soft shadow under the patch
   ctx.fillStyle = 'rgba(60,35,15,0.35)';
   roundRect(x + g, y + g + 1, w, w, r); ctx.fill();
   ctx.save();
   roundRect(x + g, y + g, w, w, r); ctx.clip();
   if (state === 0) {
-    ctx.fillStyle = '#b07a46';
+    // barren: pale, dusty, cracked
+    ctx.fillStyle = '#c0915b';
     ctx.fillRect(x, y, c, c);
-    ctx.fillStyle = 'rgba(255,230,180,0.12)';
-    ctx.fillRect(x, y, c, c / 3);
+    ctx.fillStyle = 'rgba(255,240,200,0.18)';
+    ctx.fillRect(x, y, c, c * 0.4);
+    ctx.strokeStyle = 'rgba(110,70,35,0.75)';
+    ctx.lineWidth = 0.8;
+    for (let k = 0; k < 3; k++) {
+      let px = x + 4 + rnd(k) * (c - 8), py = y + 4 + rnd(k + 9) * (c - 8);
+      ctx.beginPath(); ctx.moveTo(px, py);
+      for (let j = 0; j < 3; j++) { px += (rnd(k * 7 + j) - 0.5) * 9; py += (rnd(k * 5 + j + 3) - 0.5) * 9; ctx.lineTo(px, py); }
+      ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(150,140,125,0.9)';
+    for (let k = 0; k < 2; k++) ctx.fillRect(x + 4 + rnd(k + 20) * (c - 8), y + 4 + rnd(k + 30) * (c - 8), 1.5, 1.2);
   } else {
     const f = atlas.frames[state === 2 ? 'gt_furrow_wet' : 'gt_furrow'];
     if (f) ctx.drawImage(atlas.img, f[0], f[1], f[4] * 0.75, f[5] * 0.75, x + g, y + g, w, w);
-    if (state === 2) { ctx.fillStyle = 'rgba(160,200,255,0.10)'; ctx.fillRect(x, y, c, c / 2); }
+    if (state === 1) {
+      // tilled but dry: dusty, lighter, a couple of hairline cracks
+      ctx.fillStyle = 'rgba(235,200,150,0.22)';
+      ctx.fillRect(x, y, c, c);
+      ctx.strokeStyle = 'rgba(120,75,40,0.55)';
+      ctx.lineWidth = 0.6;
+      ctx.beginPath();
+      const sx = x + 5 + rnd(1) * (c - 10), sy = y + 5 + rnd(2) * (c - 10);
+      ctx.moveTo(sx, sy); ctx.lineTo(sx + 4, sy + 2); ctx.lineTo(sx + 6, sy + 5);
+      ctx.stroke();
+    } else {
+      // watered: dark, glossy, little puddle shine and twinkling droplets
+      ctx.fillStyle = 'rgba(40,25,30,0.25)';
+      ctx.fillRect(x, y, c, c);
+      ctx.fillStyle = 'rgba(170,210,255,0.16)';
+      ctx.beginPath(); ctx.ellipse(x + c * 0.36, y + c * 0.32, c * 0.22, c * 0.09, -0.3, 0, Math.PI * 2); ctx.fill();
+      for (let k = 0; k < 3; k++) {
+        const a = 0.35 + 0.45 * Math.sin(time / 300 + seed + k * 2.1);
+        if (a <= 0.1) continue;
+        ctx.fillStyle = `rgba(220,240,255,${a})`;
+        ctx.fillRect(x + 4 + rnd(k + 40) * (c - 8), y + 4 + rnd(k + 50) * (c - 8), 1.4, 1.4);
+      }
+    }
   }
   ctx.restore();
-  ctx.strokeStyle = state === 0 ? 'rgba(90,55,25,0.55)' : 'rgba(55,30,15,0.7)';
+  ctx.strokeStyle = state === 2 ? 'rgba(40,22,15,0.8)' : state === 1 ? 'rgba(70,40,20,0.65)' : 'rgba(110,70,35,0.5)';
   ctx.lineWidth = 1;
   roundRect(x + g + 0.5, y + g + 0.5, w - 1, w - 1, r - 0.5); ctx.stroke();
 }
@@ -329,8 +363,13 @@ function render(time: number) {
       for (let c = 0; c < PG.cols; c++) {
         const p = plots[key(c, r)];
         const [bx, by, bc] = plotRect(c, r);
-        drawPlot(bx, by, bc, p ? (p.w ? 2 : 1) : 0);
-        if (p && p.c) push(cropFrame(p) + ':p', bx + bc / 2, by + bc - 2, false);
+        drawPlot(bx, by, bc, p ? (p.w ? 2 : 1) : 0, c * 31 + r * 17, time);
+        if (p && p.c) {
+          // plant sits in the middle of the plot (seeds/sprouts a bit higher)
+          const fr = cropFrame(p);
+          const small = p.s === 0 || fr.endsWith(':s');
+          push(fr + ':p', bx + bc / 2, by + bc * (small ? 0.62 : 0.74), false);
+        }
       }
   } else {
     for (const k in plots) {
