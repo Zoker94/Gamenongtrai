@@ -144,6 +144,7 @@ function update(dt: number) {
 // ----------------------------------------------------------------- render
 interface Drawable { y: number; name: string; x: number; flip: boolean }
 const PLAYER_SCALE = 1.4;
+const cellVar = (x: number, y: number) => ((x * 7 + y * 13) % 3 + 3) % 3;
 const pool: Drawable[] = [];
 const list: Drawable[] = [];
 const byY = (a: Drawable, b: Drawable) => a.y - b.y;
@@ -169,13 +170,19 @@ function render(time: number) {
   const x1 = Math.ceil((camX + vw) / TILE) + 1, y1 = Math.ceil((camY + vh) / TILE) + 1;
   list.length = 0;
   const plots = store.st.plots;
+  if (map.background) {
+    // every bed cell: barren until it is hoed (tilled/wet cells are drawn below)
+    for (let ty = Math.max(0, y0); ty <= Math.min(map.h - 1, y1); ty++)
+      for (let tx = Math.max(0, x0); tx <= Math.min(map.w - 1, x1); tx++)
+        if (isTillable(map, tx, ty) && !plots[key(tx, ty)]) drawAt(ctx, atlas, 'bed_dry' + cellVar(tx, ty), tx * TILE, ty * TILE);
+  }
   for (const k in plots) {
     const i = k.indexOf(',');
     const tx = +k.slice(0, i), ty = +k.slice(i + 1);
     if (tx < x0 || tx > x1 || ty < y0 || ty > y1) continue;
     const p = plots[k];
     if (!map.background) drawAt(ctx, atlas, p.w ? 'tile_soil_wet' : 'tile_soil', tx * TILE, ty * TILE);
-    else if (p.w) { ctx.fillStyle = 'rgba(40,20,10,0.35)'; ctx.fillRect(tx * TILE + 1, ty * TILE + 1, TILE - 2, TILE - 2); }
+    else drawAt(ctx, atlas, (p.w ? 'bed_wet' : 'bed_tilled') + cellVar(tx, ty), tx * TILE, ty * TILE);
     if (!p.c) continue;
     if (p.s === 0) drawAt(ctx, atlas, 'seeds', tx * TILE, ty * TILE);
     else push(p.s >= RIPE ? 'crop_' + p.c : p.s === 1 ? 'crop_young' : 'crop_sprout', tx * TILE + 16, ty * TILE + TILE - 1, false);

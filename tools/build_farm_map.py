@@ -77,15 +77,11 @@ def clone(img, src_rect, dst_xy, base):
 
 
 # beds (tile coords, inclusive) must match FARM_BEDS in shared/maps/farm.ts.
-# Layout follows assets/source/field_ref.png: 4 beds on top, 3 below (the
-# last one wide).
-BEDS = [(14, 8, 15, 9), (17, 8, 18, 9), (20, 8, 21, 9), (22, 8, 22, 9),
-        (14, 11, 15, 14), (17, 11, 18, 14), (20, 11, 22, 14)]
-# how each bed is painted (output px) + style
-BED_VISUAL = [(452, 242, 522, 330, 'furrow'), (541, 242, 610, 330, 'furrow'),
-              (630, 242, 692, 330, 'plain'), (700, 242, 750, 330, 'plain'),
-              (452, 356, 522, 476, 'furrow'), (541, 356, 610, 476, 'furrow'),
-              (630, 356, 750, 476, 'furrow')]
+# Bed layout (tile coords, inclusive), after assets/source/field_ref.png:
+# 4 beds on top, 3 below (the last one wide). Must match FARM_BEDS in
+# shared/maps/farm.ts.
+BEDS = [(14, 8, 15, 9), (17, 8, 18, 9), (20, 8, 20, 9), (22, 8, 22, 9),
+        (14, 11, 15, 13), (17, 11, 18, 13), (20, 11, 22, 13)]
 
 
 def main():
@@ -133,45 +129,27 @@ def main():
     x0, y0, x1, y1 = orect(1243, 528, 1300, 642)
     clone(img, (x0, y1 + 4, x1, y1 + 4 + (y1 - y0)), (x0, y0), base)
 
-    # ---- 4. beds in the style of assets/source/field_ref.png: speckled brown
-    # soil with dark vertical furrows, or plain dark freshly-dug soil; ragged
-    # pixel edges in blocks of 2px
+    # ---- 4. beds: only a dark ragged frame per bed. The game draws every
+    # cell on top of it (dry / tilled / watered), leaving thin dark gaps
+    # between cells, so each cell reads as its own little plot.
     rnd = random.Random(11)
     ip = img.load()
-    for (vx0, vy0, vx1, vy1, kind) in BED_VISUAL:
+    for (tx0, ty0, tx1, ty1) in BEDS:
+        vx0, vy0, vx1, vy1 = tx0 * T - 3, ty0 * T - 3, (tx1 + 1) * T + 3, (ty1 + 1) * T + 3
         w, h = vx1 - vx0, vy1 - vy0
-        # ragged inset per 2px block on each side (0..2 px)
-        top = [rnd.choice((0, 0, 1, 2)) for _ in range(w // 2 + 1)]
-        bot = [rnd.choice((0, 0, 1, 2)) for _ in range(w // 2 + 1)]
-        lef = [rnd.choice((0, 0, 1, 2)) for _ in range(h // 2 + 1)]
-        rig = [rnd.choice((0, 0, 1, 2)) for _ in range(h // 2 + 1)]
-        furrows = []
-        if kind == 'furrow':
-            n = max(2, round(w / 17))
-            furrows = [round(w * (k + 0.5) / n) for k in range(n)]
+        top = [rnd.choice((0, 0, 1)) for _ in range(w // 2 + 1)]
+        bot = [rnd.choice((0, 0, 1)) for _ in range(w // 2 + 1)]
+        lef = [rnd.choice((0, 0, 1)) for _ in range(h // 2 + 1)]
+        rig = [rnd.choice((0, 0, 1)) for _ in range(h // 2 + 1)]
         for y in range(h):
             for x in range(w):
-                if (y < top[x // 2] or y >= h - bot[x // 2] or x < lef[y // 2] or x >= w - rig[y // 2]):
+                if y < top[x // 2] or y >= h - bot[x // 2] or x < lef[y // 2] or x >= w - rig[y // 2]:
                     continue
-                d_edge = min(y - top[x // 2], h - 1 - bot[x // 2] - y, x - lef[y // 2], w - 1 - rig[y // 2] - x)
-                rr = rnd.random()
-                if kind == 'plain':
-                    col = (137, 72, 44) if d_edge < 2 else (100, 54, 39)
-                    if d_edge >= 2 and rr < 0.03: col = (122, 66, 44)
-                    elif d_edge >= 2 and rr < 0.05: col = (84, 45, 34)
-                else:
-                    col = (137, 72, 44)
-                    if rr < 0.06: col = (156, 88, 52)
-                    elif rr < 0.11: col = (116, 60, 40)
-                    if 2 <= y < h - 2:
-                        for fx in furrows:
-                            dx = abs(x - fx)
-                            if dx == 0 or (dx == 1 and (y + fx) % 7):
-                                col = (82, 42, 38)
-                            elif dx == 1 or (dx == 2 and rr < 0.4):
-                                col = (108, 56, 40)
-                    if d_edge == 0: col = (122, 65, 41)
-                ip[vx0 + x, vy0 + y] = col
+                edge = min(y, h - 1 - y, x, w - 1 - x)
+                ip[vx0 + x, vy0 + y] = (122, 65, 41) if edge < 2 else (84, 46, 34)
+        # light lip under the bed
+        for x in range(vx0 + 2, vx1 - 2):
+            ip[x, vy1] = (176, 124, 70)
 
     # ---- 5. (no scarecrow in the crop area: the original one was painted over with sand in step 1)
 

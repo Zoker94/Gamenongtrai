@@ -507,6 +507,70 @@ def make_bridge(rail_side):
     return im
 
 
+def _ragged_cell(seed):
+    """Mask (set of opaque px) for a 32x32 bed cell with a 1px gap and ragged
+    2px-block edges, so cells read as separate squares."""
+    rnd = random.Random(seed)
+    inset = lambda: rnd.choice((1, 1, 1, 2))
+    top = [inset() for _ in range(16)]; bot = [inset() for _ in range(16)]
+    lef = [inset() for _ in range(16)]; rig = [inset() for _ in range(16)]
+    return lambda x, y: (y >= top[x // 2] and y < T - bot[x // 2] and x >= lef[y // 2] and x < T - rig[y // 2])
+
+
+def make_bed_cell(kind, seed):
+    """kind: dry (untilled, barren), tilled (furrows), wet (watered)."""
+    rnd = random.Random(seed)
+    inside = _ragged_cell(seed)
+    im = Image.new('RGBA', (T, T), (0, 0, 0, 0))
+    px = im.load()
+    for y in range(T):
+        for x in range(T):
+            if not inside(x, y):
+                continue
+            r = rnd.random()
+            if kind == 'dry':
+                c = (178, 132, 88)
+                if r < 0.10: c = (164, 118, 78)
+                elif r < 0.16: c = (192, 148, 102)
+            else:
+                c = (137, 72, 44)
+                if r < 0.07: c = (156, 88, 52)
+                elif r < 0.13: c = (116, 60, 40)
+                # two furrows + ridges
+                for fx in (9, 22):
+                    d = x - fx
+                    if d in (0, 1) and 2 < y < T - 3:
+                        c = (88, 45, 38)
+                    elif d == 2 and 2 < y < T - 3:
+                        c = (160, 92, 56)
+                if kind == 'wet':
+                    c = tuple(int(v * 0.66) for v in c)
+            px[x, y] = c + (255,)
+    if kind == 'dry':
+        d = ImageDraw.Draw(im)
+        for _ in range(3):  # cracks
+            x, y = rnd.randrange(5, T - 5), rnd.randrange(5, T - 5)
+            pts = [(x, y)]
+            for _ in range(rnd.randint(2, 4)):
+                x = max(3, min(T - 4, x + rnd.randint(-4, 4))); y = max(3, min(T - 4, y + rnd.randint(-4, 4)))
+                pts.append((x, y))
+            d.line(pts, fill=(128, 88, 58, 255))
+        for _ in range(3):  # pebbles
+            x, y = rnd.randrange(4, T - 6), rnd.randrange(4, T - 6)
+            d.rectangle([x, y, x + 1, y + 1], fill=(150, 140, 126, 255)); px[x, y] = (196, 188, 172, 255)
+        for _ in range(rnd.randint(0, 2)):  # dry weeds
+            x, y = rnd.randrange(5, T - 6), rnd.randrange(8, T - 5)
+            for k in range(3):
+                px[x + k - 1, y - (1 if k == 1 else 0)] = (172, 156, 82, 255)
+    if kind == 'wet':
+        for _ in range(7):  # damp glints
+            x, y = rnd.randrange(4, T - 5), rnd.randrange(4, T - 5)
+            if px[x, y][3]:
+                px[x, y] = (150, 120, 110, 255)
+                if px[x + 1, y][3]: px[x + 1, y] = (120, 92, 84, 255)
+    return im
+
+
 def make_watered(soil):
     im = soil.copy()
     px = im.load()
@@ -683,6 +747,10 @@ def main():
     stone.paste(band.crop((0, 0, T, T // 2)), (0, 0))
     stone.paste(band.crop((T, 0, 2 * T, T // 2)), (0, T // 2))
     images['tile_stone'] = stone
+    for i in range(3):
+        images[f'bed_dry{i}'] = make_bed_cell('dry', 700 + i)
+        images[f'bed_tilled{i}'] = make_bed_cell('tilled', 710 + i)
+        images[f'bed_wet{i}'] = make_bed_cell('wet', 710 + i)
     images['tile_bridge_n'] = make_bridge('n')
     images['tile_bridge_s'] = make_bridge('s')
     images['tile_bridge_m'] = make_bridge('m')
