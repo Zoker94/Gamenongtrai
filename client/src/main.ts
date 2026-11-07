@@ -2,6 +2,7 @@ import './style.css';
 import { buildFarm, isTillable } from '../../shared/maps/farm.ts';
 import { CROPS, RIPE, key, type Plot } from '../../shared/rules.ts';
 import { drawAnchored, drawAt, loadAtlas } from './atlas.ts';
+import { Effects, swayFor } from './effects.ts';
 import { Input } from './input.ts';
 import { Store } from './net.ts';
 import { Player } from './player.ts';
@@ -18,6 +19,7 @@ const store = new Store((x, y) => isTillable(map, x, y), map.starter);
 const ui = new UI(atlas);
 const input = new Input(canvas, document.getElementById('stick')!, document.getElementById('knob')!, document.getElementById('act')!);
 const player = new Player(map.spawn.x * TILE + TILE / 2, map.spawn.y * TILE + TILE - 4);
+const fx = new Effects(world);
 
 document.getElementById('loading')!.remove();
 
@@ -209,6 +211,8 @@ function render(time: number) {
 
   world.drawGround(ctx, camX, camY, vw, vh);
   world.drawWaterGlints(ctx, camX, camY, vw, vh, time);
+  const ts = time / 1000;
+  fx.drawWater(ctx, ts);
 
   // tilled soil + seeds (flat)
   const x0 = Math.floor(camX / TILE) - 1, y0 = Math.floor(camY / TILE) - 1;
@@ -252,8 +256,17 @@ function render(time: number) {
       ctx.fillRect(d.x - 7, py - 2, 14, 3);
       ctx.fillRect(d.x - 5, py + 1, 10, 1);
     }
-    drawAnchored(ctx, atlas, d.name, d.x, d.y, d.flip);
+    const sw = swayFor(d.name, d.x, d.y, ts);
+    if (sw) {
+      // shear around the base: the top moves, the roots stay put
+      ctx.save();
+      ctx.translate(d.x, d.y);
+      ctx.transform(1, 0, sw, 1, 0, 0);
+      drawAnchored(ctx, atlas, d.name, 0, 0, d.flip);
+      ctx.restore();
+    } else drawAnchored(ctx, atlas, d.name, d.x, d.y, d.flip);
   }
+  fx.drawAir(ctx, ts, camX, camY, vw, vh);
 }
 
 // ------------------------------------------------------------------- loop
@@ -263,6 +276,7 @@ function frame(t: number) {
   const dt = Math.min(0.05, (t - last) / 1000);
   last = t;
   update(dt);
+  fx.update(dt);
   render(t);
   requestAnimationFrame(frame);
 }
