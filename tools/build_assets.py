@@ -64,7 +64,13 @@ def cut_object(sheet, box):
         if x < w - 1: q.append((x + 1, y))
         if y > 0: q.append((x, y - 1))
         if y < h - 1: q.append((x, y + 1))
-    drop_border_fragments(im, keep_only_big=(sheet == 's5'))
+    # background pockets enclosed by leaves (not reachable from the border)
+    for y in range(h):
+        for x in range(w):
+            p_ = px[x, y]
+            if p_[3] and is_bg(p_) and p_[2] > p_[1] + 6:
+                px[x, y] = (0, 0, 0, 0)
+    drop_border_fragments(im, keep_only_big=True)
     return im
 
 

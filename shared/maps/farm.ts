@@ -169,6 +169,8 @@ export function buildFarm(): GameMap {
   o('seed_bag', 8.6, 7);          // seed shop
   o('flower_bush_r', 3.2, 7.3);
   o('flowers_y', 7, 5.9);
+  o('flowers_o', 3.2, 5.6);
+  o('flowers_lav', 6.8, 4.9);
   o('tree_fruit', 10.2, 4.4);
   o('bench', 9.8, 6.6);
   reserve(2, 2, 11, 7);
@@ -191,6 +193,9 @@ export function buildFarm(): GameMap {
   // --- fish pond (south-east): painted scene from the user's pond sheet
   const scenes: MapObject[] = [{ s: 'pond_scene', x: 18.6, y: 16.3 }];
   o('bench', 15, 9.4);
+  o('flowers_lav', 14, 10.4);
+  o('flowers_o', 16.4, 9.6);
+  o('flower_bush_t', 22.2, 10.6);
   o('beehives', 21.2, 9.4);
   o('signpost', 13.6, 15.4);
   o('signpost', 22.4, 7.2);
@@ -217,15 +222,15 @@ export function buildFarm(): GameMap {
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (border(x, y) <= 1) placeTree(pick(TREES), x, y);
 
   // --- small greenery: dense in the forest strip, sparse inside
-  const SMALLS = ['flowers_o', 'flowers_y', 'flower_bush_y', 'flower_bush_r', 'bush_a', 'rock_s1', 'stump', 'mushroom'];
+  const SMALLS = ['flowers_o', 'flowers_y', 'flowers_lav', 'flower_bush_y', 'flower_bush_r', 'flower_bush_t', 'fern', 'd_mushroom'];
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++)
       if (free(x, y) && r() < (border(x, y) <= 2 ? 0.5 : 0.06)) { o(pick(SMALLS), x + (r() - 0.5) * 0.3, y, r() < 0.5); reserve(x, y, x, y); }
 
   // --- ground details from the user's sheet (flowers, clover, leaves, pebbles)
   const DECALS = ['d_flower_y', 'd_flower_w', 'd_flower_r', 'd_flower_o', 'd_clover', 'd_clover2', 'd_clover3',
-    'd_clover_s', 'd_sprouts', 'd_tuft', 'd_tuft2', 'd_leaves_g', 'd_leaves_o', 'd_pebbles', 'd_moss'];
-  for (let i = 0; i < 110; i++) {
+    'd_sprouts', 'd_tuft', 'd_tuft2', 'd_tuft', 'd_tuft2'];
+  for (let i = 0; i < 70; i++) {
     const x = r() * W, y = r() * H;
     if (get(Math.floor(x), Math.floor(y)) !== G.Grass) continue;
     decals.push({ s: pick(DECALS), x: x - 0.5, y: y + 0.3 });

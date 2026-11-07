@@ -181,7 +181,7 @@ export class Effects {
       if (rnd() < dt * 0.05) { f.hx += (rnd() - 0.5) * 60; f.hy += (rnd() - 0.5) * 40; }
     }
     // leaves drifting down from trees
-    if ((this.nextLeaf -= dt) <= 0 && this.trees.length) {
+    if (false && (this.nextLeaf -= dt) <= 0 && this.trees.length) {
       this.nextLeaf = 0.5 + rnd() * 0.9;
       const tr = this.trees[Math.floor(rnd() * this.trees.length)];
       this.leaves.push({ x: tr.x + (rnd() - 0.5) * 24, y: tr.y - tr.h * (0.5 + rnd() * 0.3), vx: 6 + rnd() * 8, t: 0,
