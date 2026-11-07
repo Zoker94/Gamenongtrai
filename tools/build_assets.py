@@ -7,7 +7,7 @@ Output: client/public/assets/atlas.png + atlas.json
 """
 import json, math, os, random, sys
 from collections import deque
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, 'tools'))
@@ -778,6 +778,33 @@ def tool_icons():
 
 
 # --------------------------------------------------------------------- pack
+def polish(im, rim=True, sharp=150, color=1.18, contrast=1.08):
+    """Crisper, glossier sprite: unsharp mask, a little more colour/contrast and
+    a soft rim light on the top-left edges (as if lit by the sun)."""
+    a = im.getchannel('A')
+    rgb = im.convert('RGB').filter(ImageFilter.UnsharpMask(radius=1.4, percent=sharp, threshold=1))
+    rgb = ImageEnhance.Color(rgb).enhance(color)
+    rgb = ImageEnhance.Contrast(rgb).enhance(contrast)
+    out = rgb.convert('RGBA'); out.putalpha(a)
+    if rim:
+        px, ap = out.load(), a.load()
+        w, h = out.size
+        d = max(1, RES)
+        for y in range(h):
+            for x in range(w):
+                if not ap[x, y]:
+                    continue
+                ux, uy = x - d, y - d
+                if ux < 0 or uy < 0 or ap[ux, uy] < 40 or ap[x, uy] < 40:
+                    r_, g_, b_, a_ = px[x, y]
+                    px[x, y] = (min(255, int(r_ * 1.25 + 28)), min(255, int(g_ * 1.25 + 28)), min(255, int(b_ * 1.15 + 18)), a_)
+    return out
+
+
+GLOSSY = ('flower', 'flowers_', 'd_flower', 'd_clover', 'd_tuft', 'd_sprouts', 'd_mushroom', 'fern', 'plant', 'pc_',
+          'bush', 'tree', 'trees_', 'forest_')
+
+
 def pack(images, pad=3):
     """Shelf packer. Every sprite gets a `pad`-px border made of its own edge
     pixels (extrusion): lossy WebP and texture filtering then never bleed a
@@ -898,6 +925,13 @@ def main():
             im = images[k]
             images[k] = im.resize((im.width * RES, im.height * RES), Image.NEAREST)
 
+    for k in list(images):
+        if k.startswith(GLOSSY):
+            images[k] = polish(images[k], rim=not k.startswith(('tree', 'trees_', 'forest_')))
+        elif k in ('tex_grass', 'tex_grassd', 'tex_tall'):
+            images[k] = polish(images[k], rim=False, sharp=170, color=1.12, contrast=1.1)
+        elif k.startswith('gt_'):
+            images[k] = polish(images[k], rim=False, sharp=130, color=1.1, contrast=1.06)
     atlas, rects = pack(images)
     os.makedirs(OUT_DIR, exist_ok=True)
     for old in ('atlas.png',):
