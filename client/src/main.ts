@@ -227,8 +227,8 @@ function cropFrame(p: Plot): string {
   if (atlas.frames[`cp_${c}_g4`]) {
     if (p.s === 0) return p.w ? `cp_${c}_sprout` : `cp_${c}_seed`;
     if (p.s === 1) return p.w ? `cp_${c}_g2` : `cp_${c}_g1`;
-    if (p.s === 2) return `cp_${c}_g3`;
-    return `cp_${c}_g4`;
+    if (p.s === 2) return p.w ? `cp_${c}_g4` : `cp_${c}_g3`;
+    return `cp_${c}_ripe`;
   }
   if (p.s === 0) return 'pc_sprout:s';
   return p.s >= RIPE ? 'pc_' + c : p.s === 1 ? 'pc_sprout:s' : 'pc_sprout';

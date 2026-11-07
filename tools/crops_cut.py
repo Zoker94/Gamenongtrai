@@ -11,15 +11,24 @@ from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-CELLS = {
+COMMON = {
     'seed': (1368, 82, 1632, 330, 'green'),
     'sprout': (1665, 82, 1950, 330, 'green'),
-    'g1': (50, 405, 335, 670, 'plant'),
-    'g2': (472, 405, 735, 670, 'plant'),
-    'g3': (861, 405, 1123, 670, 'plant'),
-    'g4': (1368, 405, 1632, 670, 'plant'),
     'item': (473, 786, 709, 1034, 'item'),
     'bag': (632, 108, 792, 292, 'item'),
+}
+# per crop: growth stages g1..g4 and the ripe plant (cells differ per sheet)
+LAYOUT = {
+    'carrot': {
+        'g1': (50, 405, 335, 670, 'plant'), 'g2': (472, 405, 735, 670, 'plant'),
+        'g3': (861, 405, 1123, 670, 'plant'), 'g4': (1368, 405, 1632, 670, 'plant'),
+        'ripe': (1368, 405, 1632, 670, 'plant'),
+    },
+    'tomato': {
+        'g1': (50, 405, 335, 670, 'plant'), 'g2': (472, 405, 735, 670, 'plant'),
+        'g3': (1032, 405, 1334, 670, 'plant'), 'g4': (1665, 405, 1950, 670, 'plant'),
+        'ripe': (50, 766, 335, 1034, 'plant'),
+    },
 }
 
 
@@ -93,18 +102,19 @@ def cut(src, box, mode):
 
 def build(res, T=32):
     out = {}
-    for crop in ('carrot',):
+    for crop, cells in LAYOUT.items():
         path = os.path.join(ROOT, f'assets/source/crop_{crop}.png')
         if not os.path.exists(path):
             continue
         src = Image.open(path).convert('RGB')
-        for k, (x0, y0, x1, y1, mode) in CELLS.items():
+        for k, (x0, y0, x1, y1, mode) in {**COMMON, **cells}.items():
             im = cut(src, (x0, y0, x1, y1), mode)
             # sheet cells are ~265px for one tile; stages keep their relative size
             if k in ('item', 'bag'):
                 s = min(30 * res / im.width, 30 * res / im.height)
             else:
                 s = (T * res) / 265 * 1.15
+                s = min(s, 30 * res / im.width)   # never wider than ~one tile
             out[f'cp_{crop}_{k}'] = im.resize((max(1, round(im.width * s)), max(1, round(im.height * s))), Image.LANCZOS)
     return out
 
