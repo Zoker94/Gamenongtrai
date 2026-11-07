@@ -11,7 +11,6 @@ SCALE = 32 / 120
 #       'tile' => opaque crop, resized to exactly 32x32
 SPRITES = {
     # ---- ground tiles (opaque) ----
-    'tile_soil':      ('s1', 430, 92, 536, 196, 'tile'),
     'tile_water':     ('s1', 952, 352, 1058, 456, 'tile'),
     'tile_grass_f1':  ('s1', 32, 89, 144, 197, 'tile'),
     'tile_grass_f2':  ('s1', 164, 89, 276, 197, 'tile'),

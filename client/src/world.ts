@@ -173,6 +173,17 @@ export class World {
     const mdata = mctx.createImageData(CPC, CPC);
     const m32 = new Uint32Array(mdata.data.buffer);
     lctx.imageSmoothingEnabled = false;
+    // painted textures drawn as world-aligned repeating patterns
+    const PATTERN_TEX: Record<number, string> = { [G.Dirt]: 'tex_dirt', [G.Field]: 'tex_field', [G.Stone]: 'tex_cobble' };
+    const patterns: Record<number, CanvasPattern> = {};
+    for (const [g, name] of Object.entries(PATTERN_TEX)) {
+      const f = this.atlas.frames[name];
+      if (!f) continue;
+      const pc = makeCanvas(f[2], f[3]);
+      (pc.getContext('2d') as Ctx2D).drawImage(this.atlas.img, f[0], f[1], f[2], f[3], 0, 0, f[2], f[3]);
+      const pat = lctx.createPattern(pc, 'repeat');
+      if (pat) patterns[+g] = pat;
+    }
     const ORDER = [G.DarkGrass, G.TallGrass, G.Field, G.Dirt, G.Sand, G.Stone, G.Water, G.Bridge, G.CliffTop, G.CliffFace, G.Stairs];
 
     for (let cy = 0; cy < this.ch; cy++)
@@ -202,8 +213,15 @@ export class World {
           mctx.putImageData(mdata, 0, 0);
           lctx.globalCompositeOperation = 'source-over';
           lctx.clearRect(0, 0, CHUNK_PX, CHUNK_PX);
-          for (let y = 0; y < CHUNK; y++)
-            for (let x = 0; x < CHUNK; x++) drawAt(lctx, this.atlas, this.texture(g, ox + x, oy + y), x * TILE, y * TILE);
+          const pat = patterns[g];
+          if (pat) {
+            pat.setTransform(new DOMMatrix([1, 0, 0, 1, -ox * TILE, -oy * TILE]));
+            lctx.fillStyle = pat;
+            lctx.fillRect(0, 0, CHUNK_PX, CHUNK_PX);
+          } else {
+            for (let y = 0; y < CHUNK; y++)
+              for (let x = 0; x < CHUNK; x++) drawAt(lctx, this.atlas, this.texture(g, ox + x, oy + y), x * TILE, y * TILE);
+          }
           lctx.globalCompositeOperation = 'destination-in';
           lctx.drawImage(mask, 0, 0, CHUNK_PX, CHUNK_PX);
           ctx.drawImage(layer, 0, 0);
@@ -276,8 +294,18 @@ export class World {
           if (GRASSY.has(dn)) ctx.fillRect(px, py + C - 1, C, 1);
           if (GRASSY.has(lf)) ctx.fillRect(px, py, 2, C);
           if (GRASSY.has(rt)) ctx.fillRect(px + C - 2, py, 2, C);
-          ctx.fillStyle = 'rgba(90,60,30,0.35)';
+          ctx.fillStyle = 'rgba(70,45,25,0.35)';
           if (GRASSY.has(up)) ctx.fillRect(px, py + 2, C, 1);
+          // irregular grass tufts overhanging the soil, like the painted paths
+          const hh = hash(gx, gy);
+          if ((hh & 3) === 0) {
+            const tx = px + ((hh >>> 3) % 3);
+            ctx.fillStyle = (hh >>> 6) & 1 ? '#5aa046' : '#4f8f3e';
+            if (GRASSY.has(up)) { ctx.fillRect(tx, py + 2, 2, 2); ctx.fillRect(tx + 1, py + 4, 1, 1); }
+            if (GRASSY.has(dn)) { ctx.fillRect(tx, py + C - 2, 2, 1); ctx.fillRect(tx + 1, py + C - 3, 1, 1); }
+            if (GRASSY.has(lf)) ctx.fillRect(px + 2, py + ((hh >>> 8) % 3), 2, 2);
+            if (GRASSY.has(rt)) ctx.fillRect(px + C - 4, py + ((hh >>> 8) % 3), 2, 2);
+          }
         } else if (g === G.Water) {
           const land = (v: number) => v !== G.Water && v !== G.Bridge && v !== G.CliffFace && v !== G.CliffTop;
           ctx.fillStyle = '#2f5a3a';

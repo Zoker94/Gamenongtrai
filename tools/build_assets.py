@@ -292,6 +292,78 @@ def edge_overlay(kind, side):
     return im
 
 
+def make_seamless(im):
+    """Cross-fade with a half-offset copy so the texture tiles without seams."""
+    w, h = im.size
+    rolled = Image.new('RGBA', (w, h))
+    rolled.paste(im, (-(w // 2), -(h // 2))); rolled.paste(im, (w - w // 2, -(h // 2)))
+    rolled.paste(im, (-(w // 2), h - h // 2)); rolled.paste(im, (w - w // 2, h - h // 2))
+    a, b = im.load(), rolled.load()
+    out = Image.new('RGBA', (w, h)); o = out.load()
+    fx = [min(1.0, min(x, w - 1 - x) / (w * 0.22)) for x in range(w)]
+    fy = [min(1.0, min(y, h - 1 - y) / (h * 0.22)) for y in range(h)]
+    for y in range(h):
+        for x in range(w):
+            k = fx[x] * fy[y]
+            pa, pb = a[x, y], b[x, y]
+            o[x, y] = tuple(round(pa[i] * k + pb[i] * (1 - k)) for i in range(3)) + (255,)
+    return out
+
+
+def make_bombed_texture(sheet, box, src_size, out=128, patch=22, stamps=160, seed=7):
+    """Large seamless texture made by stamping random feathered patches of the
+    painted source at random places (wrapping). Features such as pebbles end up
+    scattered irregularly instead of repeating on a grid."""
+    rnd = random.Random(seed)
+    src = make_seamless(sheets[sheet].crop(box).convert('RGBA').resize(src_size, Image.BOX))
+    sw, sh = src.size
+    sp = src.load()
+    acc = [[[0.0, 0.0, 0.0, 0.0] for _ in range(out)] for _ in range(out)]
+    # base: tile the seamless source so nothing is empty
+    for y in range(out):
+        for x in range(out):
+            r, g, b, _ = sp[x % sw, y % sh]
+            acc[y][x] = [r * 0.2, g * 0.2, b * 0.2, 0.2]
+    half = patch / 2
+    for _ in range(stamps):
+        sx, sy = rnd.randrange(sw), rnd.randrange(sh)
+        dx, dy = rnd.randrange(out), rnd.randrange(out)
+        for j in range(patch):
+            for i in range(patch):
+                d = max(abs(i - half + 0.5), abs(j - half + 0.5)) / half
+                w = 1.0 if d < 0.6 else max(0.0, (1 - d) / 0.4)
+                if w <= 0:
+                    continue
+                r, g, b, _ = sp[(sx + i) % sw, (sy + j) % sh]
+                cell = acc[(dy + j) % out][(dx + i) % out]
+                cell[0] += r * w; cell[1] += g * w; cell[2] += b * w; cell[3] += w
+    im = Image.new('RGBA', (out, out))
+    px = im.load()
+    for y in range(out):
+        for x in range(out):
+            r, g, b, w = acc[y][x]
+            px[x, y] = (round(r / w), round(g / w), round(b / w), 255)
+    return im
+
+
+def make_mirror_texture(sheet, box, size):
+    """2x2 mirrored tiling: seamless by construction, no blur, longer period."""
+    a = sheets[sheet].crop(box).convert('RGBA').resize(size, Image.BOX)
+    w, h = size
+    out = Image.new('RGBA', (w * 2, h * 2))
+    out.paste(a, (0, 0))
+    out.paste(a.transpose(Image.FLIP_LEFT_RIGHT), (w, 0))
+    out.paste(a.transpose(Image.FLIP_TOP_BOTTOM), (0, h))
+    out.paste(a.transpose(Image.ROTATE_180), (w, h))
+    return out
+
+
+def make_texture(sheet, box, size):
+    """Ground texture cut from a painted sheet, resized and made seamless."""
+    im = sheets[sheet].crop(box).convert('RGBA').resize(size, Image.BOX)
+    return make_seamless(im)
+
+
 def make_dark_grass(seed):
     """Shaded forest-floor grass."""
     rnd = random.Random(seed)
@@ -597,7 +669,6 @@ def main():
     for kind in ('dirt', 'water'):
         for side in ('n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'):
             images[f'edge_{kind}_{side}'] = edge_overlay(kind, side)
-    images['tile_soil_wet'] = make_watered(images['tile_soil'])
     # cobblestone: the source only has a stone band, so stack it twice
     band = downscale(sheets['s2'].crop((700, 1042, 940, 1104)).convert('RGBA'), (T * 2, T // 2))
     stone = Image.new('RGBA', (T, T))
@@ -611,6 +682,12 @@ def main():
         images[f'tile_grassd{i}'] = make_dark_grass(300 + i)
     images['tile_sand'] = make_sand(400)
     images['tile_field'] = make_field(410)
+    # real painted ground textures (sheet 3), drawn as repeating patterns
+    images['tex_dirt'] = make_bombed_texture('s3', (1342, 254, 1484, 396), (44, 44), seed=7)    # pebbly path dirt
+    images['tex_field'] = make_bombed_texture('s3', (1005, 254, 1160, 396), (44, 40), seed=9)   # dark garden soil
+    images['tex_cobble'] = make_texture('s3', (415, 1010, 515, 1190), (36, 64))   # cobblestone yard
+    images['tile_soil'] = downscale(sheets['s3'].crop((1174, 98, 1326, 232)).convert('RGBA'), (T, T))  # ploughed furrows
+    images['tile_soil_wet'] = make_watered(images['tile_soil'])
     images.update(make_decals())
     images['fence_v'] = make_fence_v(images['fence_post'])
     images['tile_tallgrass'] = make_tall_grass_tile(600)
