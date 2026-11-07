@@ -196,6 +196,122 @@ def edge_overlay(kind, side):
     return im
 
 
+def make_dark_grass(seed):
+    """Shaded forest-floor grass."""
+    rnd = random.Random(seed)
+    base = (82, 148, 62, 255)
+    im = noise_tile(base, [(70, 132, 56, 255), (96, 162, 68, 255), (62, 120, 52, 255)], 0.06, seed)
+    for _ in range(rnd.randint(2, 4)):
+        tuft(im, rnd.randrange(T), rnd.randrange(T), (50, 104, 46, 255), (104, 170, 72, 255), rnd)
+    return im
+
+
+def make_field(seed):
+    """Untilled farmland: light soil with faint furrows."""
+    im = noise_tile((178, 124, 74, 255), [(160, 108, 62, 255), (192, 138, 84, 255)], 0.06, seed)
+    d = ImageDraw.Draw(im)
+    for y in range(3, T, 8):
+        d.line([(0, y), (T - 1, y)], fill=(150, 98, 56, 255))
+        d.line([(0, y + 1), (T - 1, y + 1)], fill=(196, 144, 90, 255))
+    return im
+
+
+def make_sand(seed):
+    rnd = random.Random(seed)
+    return noise_tile((214, 176, 112, 255), [(198, 160, 98, 255), (226, 192, 130, 255)], 0.05, seed)
+
+
+def make_decals():
+    """Tiny ground details baked into the ground layer (zero runtime cost)."""
+    out = {}
+    petals = {'w': ((246, 244, 232), (210, 206, 190)), 'y': ((250, 214, 70), (214, 168, 40)),
+              'p': ((240, 130, 170), (200, 90, 130)), 'b': ((120, 170, 240), (80, 120, 200)),
+              'r': ((230, 80, 70), (180, 50, 50))}
+    for k, (c1, c2) in petals.items():
+        for v in range(2):
+            rnd = random.Random(hash(k) % 1000 + v)
+            im = Image.new('RGBA', (12, 10), (0, 0, 0, 0)); px = im.load()
+            for _ in range(2 + v):
+                x, y = rnd.randrange(1, 10), rnd.randrange(1, 8)
+                px[x, y + 1] = (60, 120, 50, 255)
+                for dx, dy in ((0, -1), (-1, 0), (1, 0), (0, 1)):
+                    if 0 <= x + dx < 12 and 0 <= y + dy < 10:
+                        px[x + dx, y + dy] = c1 + (255,)
+                px[x, y] = (250, 210, 80, 255) if k != 'y' else (200, 110, 40, 255)
+                if 0 <= y + 1 < 10: px[x, y + 1] = c2 + (255,)
+            out[f'dec_flower_{k}{v}'] = im
+    for v in range(3):
+        rnd = random.Random(500 + v)
+        im = Image.new('RGBA', (12, 8), (0, 0, 0, 0)); px = im.load()
+        for i in range(4 + v):
+            x = 1 + rnd.randrange(10); h = 2 + rnd.randrange(4)
+            for y in range(h):
+                px[x, 7 - y] = (52, 110, 48, 255) if y < h - 1 else (124, 190, 84, 255)
+        out[f'dec_tuft{v}'] = im
+    im = Image.new('RGBA', (8, 6), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
+    d.ellipse([0, 1, 5, 5], fill=(150, 150, 140, 255), outline=(80, 80, 76, 255)); d.point((2, 2), fill=(200, 200, 190, 255))
+    out['dec_pebble'] = im
+    im = Image.new('RGBA', (10, 8), (0, 0, 0, 0)); px = im.load()
+    for (x, y) in ((2, 2), (6, 1), (4, 5), (8, 4)):
+        for dx, dy in ((0, 0), (1, 0), (0, 1), (1, 1)):
+            px[x + dx - 1, y + dy - 1] = (76, 150, 64, 255)
+    out['dec_clover'] = im
+    return out
+
+
+def make_fence_v(post):
+    """Vertical fence segment: a post with a rail running up to the previous post."""
+    W, H = post.width, 32 + post.height - 6
+    im = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    x0 = W // 2 - 2
+    d.rectangle([x0, 4, x0 + 3, H - 6], fill=(150, 96, 54, 255), outline=(70, 42, 26, 255))
+    d.line([(x0 + 1, 5), (x0 + 1, H - 7)], fill=(192, 132, 76, 255))
+    im.alpha_composite(post, (0, H - post.height))
+    return im
+
+
+BLADES = [(76, 150, 64, 255), (96, 170, 72, 255), (64, 132, 56, 255), (118, 186, 80, 255), (86, 160, 66, 255)]
+
+
+def blade(px, w, h, x, y, height, lean, color, tip):
+    for k in range(height):
+        xx = (x + (lean * k) // 4) % w
+        yy = y - k
+        if 0 <= yy < h:
+            px[xx, yy] = tip if k == height - 1 else color
+
+
+def make_tall_grass_tile(seed):
+    """Seamless dense grass tile (meadow floor)."""
+    rnd = random.Random(seed)
+    im = Image.new('RGBA', (T, T), (54, 112, 48, 255))
+    px = im.load()
+    for _ in range(170):
+        x, y = rnd.randrange(T), rnd.randrange(T + 6)
+        h = rnd.randint(3, 6)
+        c = rnd.choice(BLADES)
+        for k in range(h):  # wrap vertically too so the tile is seamless
+            yy = (y - k) % T
+            xx = (x + (rnd.choice((-1, 0, 0, 1)) if k == h - 1 else 0)) % T
+            px[xx, yy] = (150, 206, 96, 255) if k == h - 1 else c
+    return im
+
+
+def tall_grass_top(seed):
+    """Tall blades drawn over the player's legs while walking in the meadow."""
+    rnd = random.Random(seed)
+    W, H = T, 20
+    im = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+    px = im.load()
+    for i in range(26):
+        x = (i * 5 + rnd.randrange(4)) % W
+        blade(px, W, H, x, H - 1, rnd.randint(7, 14), rnd.choice((-2, -1, 0, 1, 2)), rnd.choice(BLADES), (150, 206, 96, 255))
+        if 0 <= x - 1:
+            px[x - 1, H - 1] = (44, 92, 42, 255)
+    return im
+
+
 def make_bridge(rail_side):
     im = Image.new('RGBA', (T, T), (150, 100, 56, 255))
     d = ImageDraw.Draw(im)
@@ -204,6 +320,8 @@ def make_bridge(rail_side):
         d.line([(x, 0), (x, T - 1)], fill=(92, 58, 34, 255))
         d.point((x + 3, 6 + (x % 16)), fill=(110, 70, 40, 255))
         d.point((x + 4, 22 - (x % 12)), fill=(110, 70, 40, 255))
+    if rail_side == 'm':
+        return im
     y = 0 if rail_side == 'n' else T - 6
     d.rectangle([0, y, T - 1, y + 5], fill=(120, 78, 44, 255))
     d.line([(0, y + 1), (T - 1, y + 1)], fill=(176, 124, 70, 255))
@@ -378,6 +496,15 @@ def main():
     images['tile_stone'] = stone
     images['tile_bridge_n'] = make_bridge('n')
     images['tile_bridge_s'] = make_bridge('s')
+    images['tile_bridge_m'] = make_bridge('m')
+    for i in range(4):
+        images[f'tile_grassd{i}'] = make_dark_grass(300 + i)
+    images['tile_sand'] = make_sand(400)
+    images['tile_field'] = make_field(410)
+    images.update(make_decals())
+    images['fence_v'] = make_fence_v(images['fence_post'])
+    images['tile_tallgrass'] = make_tall_grass_tile(600)
+    images['tallgrass_top'] = tall_grass_top(601)
     images['seeds'] = make_seeds(images['tile_soil'])
     for dname, di in (('down', 0), ('left', 1), ('right', 2), ('up', 3)):
         for f in range(4):

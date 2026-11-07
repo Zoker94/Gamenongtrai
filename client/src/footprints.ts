@@ -3,6 +3,8 @@
 export type Box = [dx: number, dy: number, w: number, h: number];
 
 const NONE: Box[] = [];
+// the cliff tiles already block; keep the cave walkable-looking but solid
+const NONE_SOLID = (): Box[] => [[-30, -10, 60, 10]];
 
 export const FOOTPRINTS: Record<string, Box[]> = {
   house: [[-54, -44, 108, 40]],
@@ -14,6 +16,23 @@ export const FOOTPRINTS: Record<string, Box[]> = {
   coop_small: [[-30, -26, 60, 24]],
   gate_arch: [[-42, -12, 22, 12], [20, -12, 22, 12]],
   fence_h: [[-16, -7, 32, 5]],
+  fence_v: [[-3, -36, 6, 34]],
+  waterfall: [[-46, -40, 92, 40]],
+  cave: NONE_SOLID(),
+  arena_arch: [[-30, -8, 10, 8], [20, -8, 10, 8]],
+  crown_gate: [[-36, -6, 8, 6], [28, -6, 8, 6]],
+  grandstand: [[-62, -40, 124, 38]],
+  tent_beige: [[-24, -16, 48, 14]],
+  tent_green: [[-24, -16, 48, 14]],
+  tent_orange: [[-20, -14, 40, 12]],
+  bunting_a: [[-27, -4, 4, 4], [23, -4, 4, 4]],
+  bunting_b: [[-31, -4, 4, 4], [27, -4, 4, 4]],
+  flag_red: [[-8, -4, 6, 4]], flag_green: [[-8, -4, 6, 4]], flag_purple: [[-8, -4, 6, 4]],
+  banner_blue: [[-3, -4, 6, 4]], banner_gold: [[-3, -4, 6, 4]],
+  trees_double: [[-24, -10, 48, 9]],
+  trees_cluster: [[-26, -10, 52, 9]],
+  forest_pines: [[-44, -12, 88, 10]],
+  tree_round: [[-9, -8, 18, 7]],
   lamp_post: [[-3, -4, 6, 4]],
   lamp_tall: [[-3, -4, 6, 4]],
   signpost: [[-4, -5, 8, 5]],
@@ -23,6 +42,7 @@ export const FOOTPRINTS: Record<string, Box[]> = {
   // no collision
   flowers_o: NONE, flowers_y: NONE, flowers_lav: NONE, fern: NONE, plant: NONE,
   mushroom: NONE, mushrooms: NONE, leaves: NONE, pebbles: NONE,
+  tallgrass_top: NONE, arena_floor: NONE, dec_pebble: NONE,
 };
 
 export function footprintFor(name: string, w: number, h: number): Box[] {

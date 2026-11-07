@@ -57,6 +57,8 @@ function useTile(tx: number, ty: number) {
 
 // ------------------------------------------------------------------- view
 let zoom = 2, vw = 0, vh = 0, dpr = 1;
+// ?z=1 forces a zoom level (handy for map overview screenshots while designing)
+const FORCE_ZOOM = Number(new URLSearchParams(location.search).get('z')) || 0;
 const cam = { x: 0, y: 0 };
 
 function resize() {
@@ -66,7 +68,7 @@ function resize() {
   canvas.style.width = innerWidth + 'px';
   canvas.style.height = innerHeight + 'px';
   // integer zoom: show at least ~11 tiles on the short side
-  zoom = Math.max(1, Math.floor(Math.min(w, h) / (11 * TILE)));
+  zoom = FORCE_ZOOM || Math.max(1, Math.floor(Math.min(w, h) / (11 * TILE)));
   vw = w / zoom; vh = h / zoom;
   ctx.imageSmoothingEnabled = false;
 }
@@ -159,6 +161,7 @@ function render(time: number) {
   ctx.setTransform(zoom, 0, 0, zoom, -ox, -oy);
 
   world.drawGround(ctx, camX, camY, vw, vh);
+  world.drawWaterGlints(ctx, camX, camY, vw, vh, time);
 
   // tilled soil + seeds (flat)
   const x0 = Math.floor(camX / TILE) - 1, y0 = Math.floor(camY / TILE) - 1;
