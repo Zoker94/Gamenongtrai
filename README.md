@@ -50,7 +50,7 @@ shared/            code dùng chung cho client và server
 
 ## Tối ưu để nhẹ và mượt
 
-- **Dung lượng tải**: khoảng 125 KB tổng cộng. Toàn bộ 200 sprite nằm trong 1 atlas PNG 8-bit (~106 KB), JS ~14 KB sau gzip.
+- **Dung lượng tải**: khoảng 500 KB. Toàn bộ sprite nằm trong 1 atlas WebP độ phân giải gấp đôi (2x, ~480 KB) để hình sắc nét khi phóng to; JS ~16 KB sau gzip.
   Sprite được thu nhỏ về đúng kích thước pixel art (ô 32px) rồi phóng to bằng số nguyên khi vẽ, nên vẫn sắc nét.
 - **Vẽ nhanh**: nền (đường đất, nước, cỏ cao, bóng đổ, hoa nhỏ, vạch sân đấu) được vẽ sẵn một lần ở độ chi tiết 4px vào các chunk 512×512. Mỗi khung hình chỉ cần vài lệnh `drawImage`
   cho nền, cộng với các vật thể đang nằm trong màn hình.

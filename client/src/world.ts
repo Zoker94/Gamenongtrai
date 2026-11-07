@@ -166,8 +166,11 @@ export class World {
   private renderChunks() {
     this.buildFine();
     const CPC = CHUNK_PX / CELL; // cells per chunk side
-    const layer = makeCanvas(CHUNK_PX, CHUNK_PX);
+    // chunks are rendered at the atlas density so the ground stays sharp
+    const R = this.atlas.res;
+    const layer = makeCanvas(CHUNK_PX * R, CHUNK_PX * R);
     const lctx = layer.getContext('2d') as Ctx2D;
+    lctx.setTransform(R, 0, 0, R, 0, 0);
     const mask = makeCanvas(CPC, CPC);
     const mctx = mask.getContext('2d') as Ctx2D;
     const mdata = mctx.createImageData(CPC, CPC);
@@ -182,23 +185,24 @@ export class World {
     for (const [g, name] of Object.entries(PATTERN_TEX)) {
       const f = this.atlas.frames[name];
       if (!f) continue;
-      const pc = makeCanvas(f[2], f[3]);
-      (pc.getContext('2d') as Ctx2D).drawImage(this.atlas.img, f[0], f[1], f[2], f[3], 0, 0, f[2], f[3]);
-      const pat = lctx.createPattern(pc, 'repeat');
+      const pc2 = makeCanvas(f[4], f[5]);
+      (pc2.getContext('2d') as Ctx2D).drawImage(this.atlas.img, f[0], f[1], f[4], f[5], 0, 0, f[4], f[5]);
+      const pat = lctx.createPattern(pc2, 'repeat');
       if (pat) patterns[+g] = pat;
     }
     const ORDER = [G.DarkGrass, G.TallGrass, G.Field, G.Dirt, G.Sand, G.Stone, G.Water, G.Bridge, G.CliffTop, G.CliffFace, G.Stairs];
 
     for (let cy = 0; cy < this.ch; cy++)
       for (let cx = 0; cx < this.cw; cx++) {
-        const c = makeCanvas(CHUNK_PX, CHUNK_PX);
+        const c = makeCanvas(CHUNK_PX * R, CHUNK_PX * R);
         const ctx = c.getContext('2d') as Ctx2D;
+        ctx.setTransform(R, 0, 0, R, 0, 0);
         ctx.imageSmoothingEnabled = false;
         const ox = cx * CHUNK, oy = cy * CHUNK;
         const fx0 = cx * CPC, fy0 = cy * CPC;
         // base: grass everywhere
         if (patterns[G.Grass]) {
-          patterns[G.Grass].setTransform(new DOMMatrix([1, 0, 0, 1, -ox * TILE, -oy * TILE]));
+          patterns[G.Grass].setTransform(new DOMMatrix([1 / R, 0, 0, 1 / R, -ox * TILE, -oy * TILE]));
           ctx.fillStyle = patterns[G.Grass];
           ctx.fillRect(0, 0, CHUNK_PX, CHUNK_PX);
         } else {
@@ -224,7 +228,7 @@ export class World {
           lctx.clearRect(0, 0, CHUNK_PX, CHUNK_PX);
           const pat = patterns[g];
           if (pat) {
-            pat.setTransform(new DOMMatrix([1, 0, 0, 1, -ox * TILE, -oy * TILE]));
+            pat.setTransform(new DOMMatrix([1 / R, 0, 0, 1 / R, -ox * TILE, -oy * TILE]));
             lctx.fillStyle = pat;
             lctx.fillRect(0, 0, CHUNK_PX, CHUNK_PX);
           } else {
@@ -233,7 +237,7 @@ export class World {
           }
           lctx.globalCompositeOperation = 'destination-in';
           lctx.drawImage(mask, 0, 0, CHUNK_PX, CHUNK_PX);
-          ctx.drawImage(layer, 0, 0);
+          ctx.drawImage(layer, 0, 0, CHUNK_PX, CHUNK_PX);
         }
         lctx.globalCompositeOperation = 'source-over';
         this.drawOutlines(ctx, fx0, fy0, CPC);
@@ -366,7 +370,7 @@ export class World {
     const x1 = Math.min(this.cw - 1, Math.floor((vx + vw) / CHUNK_PX));
     const y1 = Math.min(this.ch - 1, Math.floor((vy + vh) / CHUNK_PX));
     for (let cy = y0; cy <= y1; cy++)
-      for (let cx = x0; cx <= x1; cx++) ctx.drawImage(this.chunks[cy * this.cw + cx], cx * CHUNK_PX, cy * CHUNK_PX);
+      for (let cx = x0; cx <= x1; cx++) ctx.drawImage(this.chunks[cy * this.cw + cx], cx * CHUNK_PX, cy * CHUNK_PX, CHUNK_PX, CHUNK_PX);
   }
 
   // -------------------------------------------------------------- collision

@@ -1,15 +1,21 @@
 import type { World } from './world.ts';
 
-// Animation frames (atlas names). Side frames face left; right = flipped.
-const WALK: Record<number, string[]> = {
-  0: ['pl_d1', 'pl_d0', 'pl_d2', 'pl_d0'],
-  3: ['pl_u1', 'pl_u0', 'pl_u2', 'pl_u3'],
-  1: ['pl_l0', 'pl_l1', 'pl_l0', 'pl_l1'],
-  2: ['pl_l0', 'pl_l1', 'pl_l0', 'pl_l1'],
+// Animation frames (atlas names, cut by tools/build_assets.py from sheet 5).
+// Every frame is aligned on the feet, so switching frames never shifts the
+// character. Walk side frames face LEFT, idle/run side frames face RIGHT.
+type F = [name: string, flip: boolean];
+const IDLE: Record<number, F> = {
+  0: ['pl_idle_d', false], 3: ['pl_idle_u', false], 1: ['pl_idle_r', true], 2: ['pl_idle_r', false],
 };
-const IDLE: Record<number, [string, boolean]> = {
-  0: ['pl_d0', false], 3: ['pl_u0', false], 1: ['pl_r_idle', true], 2: ['pl_r_idle', false],
+const WALK: Record<number, F[]> = {
+  0: [['pl_walk_d0', false], ['pl_idle_d', false], ['pl_walk_d1', false], ['pl_idle_d', false]],
+  3: [['pl_walk_u0', false], ['pl_idle_u', false], ['pl_walk_u1', false], ['pl_idle_u', false]],
+  1: [['pl_walk_l0', false], ['pl_idle_r', true], ['pl_walk_l1', false], ['pl_idle_r', true]],
+  2: [['pl_walk_l0', true], ['pl_idle_r', false], ['pl_walk_l1', true], ['pl_idle_r', false]],
 };
+const RUN_SIDE = ['pl_run_r0', 'pl_run_r1', 'pl_run_r2', 'pl_run_r3'];
+/** game px travelled per animation frame (ties leg motion to real movement: no foot sliding) */
+const STRIDE_WALK = 9, STRIDE_RUN = 12;
 export type Dir = 0 | 1 | 2 | 3;
 
 // Feet collider (world px), relative to the feet point.
@@ -29,21 +35,27 @@ export class Player {
     this.x = x; this.y = y;
   }
 
-  /** short tool animation (hoe / water / harvest), faces right in the atlas */
+  /** short tool animation (hoe / water / harvest); atlas frames face right */
   action: { name: string; t: number } | null = null;
+  running = false;
+  private dist = 0;
 
   playAction(name: string) { this.action = { name, t: 0.35 }; }
 
   /** sprite to draw + whether to mirror it */
-  get frame(): [string, boolean] {
+  get frame(): F {
     if (this.action) return [this.action.name, this.dir === 1];
     if (!this.moving) return IDLE[this.dir];
-    const f = WALK[this.dir][Math.floor(this.anim * 7) % 4];
-    return [f, this.dir === 2];
+    if (this.running && (this.dir === 1 || this.dir === 2))
+      return [RUN_SIDE[Math.floor(this.dist / STRIDE_RUN) % 4], this.dir === 1];
+    return WALK[this.dir][Math.floor(this.dist / (this.running ? STRIDE_RUN : STRIDE_WALK)) % 4];
   }
 
-  /** 1px bob while walking makes the 2-frame cycle feel livelier */
-  get bob(): number { return this.moving && !this.action && Math.floor(this.anim * 7) % 2 ? 1 : 0; }
+  /** small body bob on the passing frames */
+  get bob(): number {
+    if (!this.moving || this.action) return 0;
+    return Math.floor(this.dist / STRIDE_WALK) % 2 ? 1 : 0;
+  }
 
   /** ix, iy: input vector (-1..1). */
   update(dt: number, ix: number, iy: number, world: World) {
@@ -57,20 +69,26 @@ export class Player {
     }
     const len = Math.hypot(ix, iy);
     this.moving = len > 0.15;
-    if (!this.moving) { this.anim = 0; return; }
+    if (!this.moving) { this.dist = 0; return; }
     if (len > 1) { ix /= len; iy /= len; }
-    // facing: dominant axis
-    if (Math.abs(ix) > Math.abs(iy)) this.dir = ix < 0 ? 1 : 2;
-    else this.dir = iy < 0 ? 3 : 0;
-    this.anim += dt;
+    // facing with hysteresis: diagonal input keeps the current facing instead
+    // of flickering between two directions every frame
+    const ax = Math.abs(ix), ay = Math.abs(iy);
+    const horiz = this.dir === 1 || this.dir === 2;
+    if (horiz ? ay > ax * 1.4 : ax > ay * 1.4) {
+      if (ax > ay) this.dir = ix < 0 ? 1 : 2; else this.dir = iy < 0 ? 3 : 0;
+    } else if (horiz) this.dir = ix < 0 ? 1 : ix > 0 ? 2 : this.dir;
+    else this.dir = iy < 0 ? 3 : iy > 0 ? 0 : this.dir;
 
-    const step = this.speed * dt;
+    const step = this.speed * (this.running ? 1.65 : 1) * dt;
     const mx = ix * step, my = iy * step;
-    let movedX = false, movedY = false;
-    if (mx && !world.blocked(this.x + mx - CW / 2, this.y - CH, CW, CH)) { this.x += mx; movedX = true; }
-    if (my && !world.blocked(this.x - CW / 2, this.y + my - CH, CW, CH)) { this.y += my; movedY = true; }
-    // slide around corners: nudge sideways if completely stuck on one axis
-    if (!movedX && !movedY && this.target) this.target = null;
+    const ox = this.x, oy = this.y;
+    if (mx && !world.blocked(this.x + mx - CW / 2, this.y - CH, CW, CH)) this.x += mx;
+    if (my && !world.blocked(this.x - CW / 2, this.y + my - CH, CW, CH)) this.y += my;
+    const moved = Math.hypot(this.x - ox, this.y - oy);
+    this.dist += moved;
+    // pushing against a wall: stand still instead of moonwalking
+    if (moved < step * 0.2) { this.moving = false; this.dist = 0; if (this.target) this.target = null; }
   }
 
   /** Tile in front of the player. */

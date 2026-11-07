@@ -80,7 +80,10 @@ function resize() {
   const fill = Math.max(w / world.pxW, h / world.pxH);
   zoom = FORCE_ZOOM || Math.max(fill, base * ZOOM_STEPS[zoomStep]);
   vw = w / zoom; vh = h / zoom;
-  ctx.imageSmoothingEnabled = false;
+  // the atlas holds `res` pixels per game pixel: when that is more than the
+  // screen shows (zoomed out), filter smoothly instead of dropping pixels
+  ctx.imageSmoothingEnabled = zoom < atlas.res - 0.05;
+  ctx.imageSmoothingQuality = 'high';
   zinBtn.disabled = zoomStep >= ZOOM_STEPS.length - 1;
   zoutBtn.disabled = zoomStep <= 0 || zoom <= fill + 1e-6;
 }
@@ -151,6 +154,7 @@ function update(dt: number) {
   }
 
   input.axis(axis);
+  player.running = input.run;
   player.update(dt, axis.x, axis.y, world);
 
   // pointer: tap a tile near you to use it, far away to walk there

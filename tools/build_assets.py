@@ -15,6 +15,9 @@ from sprites import SPRITES, SCALE  # noqa: E402
 
 OUT_DIR = os.path.join(ROOT, 'client', 'public', 'assets')
 T = 32
+# Atlas pixel density: every sprite is stored at RES x its in-game size, so a
+# 32px tile has 64x64 real pixels and stays sharp when zoomed in.
+RES = 2
 
 sheets = {
     's1': Image.open(os.path.join(ROOT, 'assets/source/sheet1.png')).convert('RGB'),
@@ -135,7 +138,7 @@ def is_water(p):
     return a and b > r + 35 and b > g + 10
 
 
-def close_scene(im, M=14):
+def close_scene(im, M=14 * RES):
     """The painted pond runs off the bottom/right edge of its panel. Extend it
     by M px: water continues and ends in a wavy shore (foam + grass rim),
     docks that touch the edge keep going until they reach the shore."""
@@ -144,8 +147,8 @@ def close_scene(im, M=14):
     out.paste(im, (0, 0))
     src, px = im.load(), out.load()
     WATER = (64, 128, 188, 255)
-    shore_b = [h + 5 + round(2 * math.sin(x / 9) + 1.4 * math.sin(x / 3.7)) for x in range(w + M)]
-    shore_r = [w + 5 + round(2 * math.sin(y / 8) + 1.4 * math.sin(y / 3.1)) for y in range(h + M)]
+    shore_b = [h + 5 * RES + round(RES * (2 * math.sin(x / (9 * RES)) + 1.4 * math.sin(x / (3.7 * RES)))) for x in range(w + M)]
+    shore_r = [w + 5 * RES + round(RES * (2 * math.sin(y / (8 * RES)) + 1.4 * math.sin(y / (3.1 * RES)))) for y in range(h + M)]
     for y in range(h + M):
         for x in range(w + M):
             if x < w and y < h:
@@ -159,9 +162,9 @@ def close_scene(im, M=14):
                 px[x, y] = WATER
             elif edge[3] and edge[0] > edge[2] + 30:          # dock planks: repeat the last 8 rows/cols
                 if y >= h:
-                    px[x, y] = src[sx, h - 8 + (y - h) % 8]
+                    px[x, y] = src[sx, h - 8 * RES + (y - h) % (8 * RES)]
                 else:
-                    px[x, y] = src[w - 8 + (x - w) % 8, sy]
+                    px[x, y] = src[w - 8 * RES + (x - w) % (8 * RES), sy]
     # foam on water touching transparency, dark grass rim just outside
     snap = out.copy().load()
     for y in range(h + M):
@@ -195,9 +198,49 @@ def water_mask(im, cell=4):
     return rows
 
 
+# ---------------------------------------------------------------- player
+# Cell grid of sheet 5 (source px): 4 idle columns, 2 walk, 2 run; 4 rows.
+P_ROWS = [(138, 296), (307, 465), (476, 635), (647, 807)]
+P_COLS = [(46, 190), (201, 343), (355, 496), (507, 650), (718, 859), (871, 1012), (1125, 1269), (1281, 1426)]
+P_SCALE = 0.82
+# frame name -> (col, row). Side frames: 'r' faces RIGHT, 'l' faces LEFT.
+P_FRAMES = {
+    'pl_idle_d': (0, 0), 'pl_walk_d0': (4, 0), 'pl_walk_d1': (4, 1),
+    'pl_idle_u': (1, 1), 'pl_walk_u0': (5, 0), 'pl_walk_u1': (5, 1),
+    'pl_idle_r': (2, 0), 'pl_walk_l0': (4, 2), 'pl_walk_l1': (4, 3),
+    'pl_run_r0': (6, 0), 'pl_run_r1': (6, 1), 'pl_run_r2': (6, 2), 'pl_run_r3': (6, 3),
+}
+
+
+def feet_align(im, half_w=None):
+    """Re-centre a trimmed character so the middle of its feet sits exactly at
+    the horizontal centre of the image (the draw anchor). Without this, frames
+    whose bbox grows because of a swinging arm, a backpack or a tool make the
+    character jump sideways while animating."""
+    bb = im.getchannel('A').getbbox()
+    im = im.crop(bb)
+    w, h = im.size
+    px = im.load()
+    xs = [x for y in range(int(h * 0.9), h) for x in range(w) if px[x, y][3]]
+    fx = (min(xs) + max(xs)) / 2 if xs else w / 2
+    hw = max(round(fx), w - round(fx)) if half_w is None else half_w
+    out = Image.new('RGBA', (hw * 2, h), (0, 0, 0, 0))
+    out.paste(im, (hw - round(fx), 0))
+    return out
+
+
+def cut_player():
+    out = {}
+    for name, (c, r) in P_FRAMES.items():
+        x0, x1 = P_COLS[c]; y0, y1 = P_ROWS[r]
+        im = cut_object('s5', (x0 + 4, y0 + 4, x1 - 4, y1 - 4))
+        out[name] = feet_align(downscale(im, mult=P_SCALE))
+    return out
+
+
 def downscale(im, size=None, mult=1.0):
     if size is None:
-        size = (max(1, round(im.width * SCALE * mult)), max(1, round(im.height * SCALE * mult)))
+        size = (max(1, round(im.width * SCALE * mult * RES)), max(1, round(im.height * SCALE * mult * RES)))
     small = im.resize(size, Image.BOX)
     if small.mode == 'RGBA':
         a = small.getchannel('A').point(lambda v: 255 if v >= 110 else 0)
@@ -624,7 +667,7 @@ def tool_icons():
 # --------------------------------------------------------------------- pack
 def pack(images):
     items = sorted(images.items(), key=lambda kv: (-kv[1].height, -kv[1].width))
-    W = 1024
+    W = 2048
     x = y = shelf = 0
     rects = {}
     for name, im in items:
@@ -644,32 +687,38 @@ def pack(images):
 def main():
     images = {}
     masks = {}
+    native = set()   # images already at RES density
     for name, spec in SPRITES.items():
         sh, x0, y0, x1, y1, kind = spec[:6]
         mult = spec[6] if len(spec) > 6 else 1.0
+        native.add(name)
         if kind == 'tile':
-            images[name] = downscale(sheets[sh].crop((x0, y0, x1, y1)).convert('RGBA'), (T, T))
+            images[name] = downscale(sheets[sh].crop((x0, y0, x1, y1)).convert('RGBA'), (T * RES, T * RES))
         elif kind == 'scene':
             im = close_scene(downscale(cut_scene(sh, (x0, y0, x1, y1)), mult=mult))
             if name == 'pond_scene':  # drop the muddy path patch in the bottom-left corner of the painting
                 cp = im.load()
                 for yy in range(int(im.height * 0.66), im.height):
-                    for xx in range(0, 26):
+                    for xx in range(0, 26 * RES):
                         if not is_water(cp[xx, yy]):
                             cp[xx, yy] = (0, 0, 0, 0)
-            # pad so the size is a multiple of the 4px collision cell
-            pw, ph = -(-im.width // 4) * 4, -(-im.height // 4) * 4
+            # pad so the size is a multiple of the 4px collision cell (in game px)
+            g = 4 * RES
+            pw, ph = -(-im.width // g) * g, -(-im.height // g) * g
             padded = Image.new('RGBA', (pw, ph), (0, 0, 0, 0)); padded.paste(im, (0, 0))
             images[name] = padded
-            masks[name] = water_mask(padded)
+            masks[name] = water_mask(padded, cell=g)
+        elif name.startswith('pl_'):
+            images[name] = feet_align(downscale(cut_object(sh, (x0, y0, x1, y1)), mult=mult))
         else:
             images[name] = trim(downscale(cut_object(sh, (x0, y0, x1, y1)), mult=mult))
+    images.update(cut_player()); native.update(k for k in images if k.startswith('pl_'))
     # crops render as 1 tile
     for name in list(images):
         if name.startswith('crop_'):
             im = images[name]
-            s = min(T / im.width, T / im.height)
-            images[name] = im.resize((max(1, round(im.width * s)), max(1, round(im.height * s))), Image.NEAREST)
+            s = min(T * RES / im.width, T * RES / im.height)
+            images[name] = im.resize((max(1, round(im.width * s)), max(1, round(im.height * s))), Image.LANCZOS)
 
     for i in range(4):
         images[f'tile_grass{i}'] = make_grass(100 + i)
@@ -678,11 +727,12 @@ def main():
         for side in ('n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'):
             images[f'edge_{kind}_{side}'] = edge_overlay(kind, side)
     # cobblestone: the source only has a stone band, so stack it twice
-    band = downscale(sheets['s2'].crop((700, 1042, 940, 1104)).convert('RGBA'), (T * 2, T // 2))
-    stone = Image.new('RGBA', (T, T))
-    stone.paste(band.crop((0, 0, T, T // 2)), (0, 0))
-    stone.paste(band.crop((T, 0, 2 * T, T // 2)), (0, T // 2))
-    images['tile_stone'] = stone
+    band = downscale(sheets['s2'].crop((700, 1042, 940, 1104)).convert('RGBA'), (T * 2 * RES, T // 2 * RES))
+    TR = T * RES
+    stone = Image.new('RGBA', (TR, TR))
+    stone.paste(band.crop((0, 0, TR, TR // 2)), (0, 0))
+    stone.paste(band.crop((TR, 0, 2 * TR, TR // 2)), (0, TR // 2))
+    images['tile_stone'] = stone; native.add('tile_stone')
     images['tile_bridge_n'] = make_bridge('n')
     images['tile_bridge_s'] = make_bridge('s')
     images['tile_bridge_m'] = make_bridge('m')
@@ -691,37 +741,47 @@ def main():
     images['tile_sand'] = make_sand(400)
     images['tile_field'] = make_field(410)
     # painted ground textures (sheet 4: one consistent palette for grass + soil)
-    images['tex_grass'] = make_bombed_texture('s4', (55, 355, 182, 505), (34, 40), seed=3)
-    images['tex_grassd'] = make_bombed_texture('s4', (228, 360, 362, 505), (36, 39), patch=18, seed=5)
-    images['tex_tall'] = make_bombed_texture('s4', (414, 165, 558, 318), (38, 41), patch=18, seed=6)
-    images['tex_dirt'] = make_bombed_texture('s4', (1042, 782, 1175, 895), (36, 30), seed=7)
-    images['tex_field'] = make_bombed_texture('s4', (1402, 252, 1530, 325), (34, 20), patch=14, seed=9)
-    images['tex_cobble'] = make_seamless(sheets['s4'].crop((1400, 782, 1530, 895)).convert('RGBA').resize((40, 34), Image.BOX))
-    images['tile_soil'] = downscale(sheets['s4'].crop((1217, 362, 1348, 505)).convert('RGBA'), (T, T))  # ploughed furrows
+    R = RES
+    images['tex_grass'] = make_bombed_texture('s4', (55, 355, 182, 505), (34 * R, 40 * R), out=128 * R, patch=22 * R, seed=3)
+    images['tex_grassd'] = make_bombed_texture('s4', (228, 360, 362, 505), (36 * R, 39 * R), out=128 * R, patch=18 * R, seed=5)
+    images['tex_tall'] = make_bombed_texture('s4', (414, 165, 558, 318), (38 * R, 41 * R), out=128 * R, patch=18 * R, seed=6)
+    images['tex_dirt'] = make_bombed_texture('s4', (1042, 782, 1175, 895), (36 * R, 30 * R), out=128 * R, patch=22 * R, seed=7)
+    images['tex_field'] = make_bombed_texture('s4', (1402, 252, 1530, 325), (34 * R, 20 * R), out=128 * R, patch=14 * R, seed=9)
+    images['tex_cobble'] = make_seamless(sheets['s4'].crop((1400, 782, 1530, 895)).convert('RGBA').resize((40 * R, 34 * R), Image.BOX))
+    images['tile_soil'] = downscale(sheets['s4'].crop((1217, 362, 1348, 505)).convert('RGBA'), (T * R, T * R))  # ploughed furrows
     images['tile_soil_wet'] = make_watered(images['tile_soil'])
+    native.update(['tex_grass', 'tex_grassd', 'tex_tall', 'tex_dirt', 'tex_field', 'tex_cobble', 'tile_soil', 'tile_soil_wet'])
     images.update(make_decals())
-    images['fence_v'] = make_fence_v(images['fence_post'])
+    images['fence_v'] = make_fence_v(images['fence_post'].resize((images['fence_post'].width // RES, images['fence_post'].height // RES), Image.BOX))
     images['tile_tallgrass'] = make_tall_grass_tile(600)
     images['tallgrass_top'] = tall_grass_top(601)
-    images['seeds'] = make_seeds(images['tile_soil'])
+    images['seeds'] = make_seeds(None)
     # HUD portrait (opaque, keeps its orange frame)
-    images['portrait'] = sheets['s5'].crop((2278, 138, 2552, 398)).convert('RGBA').resize((44, 42), Image.BOX)
+    images['portrait'] = sheets['s5'].crop((2278, 138, 2552, 398)).convert('RGBA').resize((44 * R, 42 * R), Image.LANCZOS)
+    native.add('portrait')
     images.update(tool_icons())
+    # procedural pixel art is drawn at game resolution: blow it up crisply
+    for k in list(images):
+        if k not in native:
+            im = images[k]
+            images[k] = im.resize((im.width * RES, im.height * RES), Image.NEAREST)
 
     atlas, rects = pack(images)
     os.makedirs(OUT_DIR, exist_ok=True)
-    q = atlas.quantize(colors=255, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE)
-    png_path = os.path.join(OUT_DIR, 'atlas.png')
-    q.save(png_path, optimize=True)
+    for old in ('atlas.png',):
+        if os.path.exists(os.path.join(OUT_DIR, old)):
+            os.remove(os.path.join(OUT_DIR, old))
+    out_path = os.path.join(OUT_DIR, 'atlas.webp')
+    atlas.save(out_path, 'WEBP', quality=92, method=6)
     with open(os.path.join(OUT_DIR, 'atlas.json'), 'w') as f:
-        json.dump({'w': atlas.width, 'h': atlas.height, 'frames': rects, 'masks': masks}, f, separators=(',', ':'))
-    print(f'atlas {atlas.width}x{atlas.height}, {len(rects)} sprites, {os.path.getsize(png_path)//1024} KB')
+        json.dump({'w': atlas.width, 'h': atlas.height, 'res': RES, 'frames': rects, 'masks': masks}, f, separators=(',', ':'))
+    print(f'atlas {atlas.width}x{atlas.height} @{RES}x, {len(rects)} sprites, {os.path.getsize(out_path)//1024} KB')
 
     if '--preview' in sys.argv:
         out = sys.argv[sys.argv.index('--preview') + 1]
         bg = Image.new('RGBA', atlas.size, (255, 0, 255, 255))
-        bg.alpha_composite(q.convert('RGBA'))
-        bg.resize((atlas.width * 2, atlas.height * 2), Image.NEAREST).save(out)
+        bg.alpha_composite(atlas)
+        bg.save(out)
 
 
 if __name__ == '__main__':

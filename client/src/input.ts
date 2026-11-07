@@ -2,6 +2,8 @@
 
 export class Input {
   private keys = new Set<string>();
+  /** joystick pushed to the rim */
+  jrun = false;
   /** joystick vector */
   jx = 0;
   jy = 0;
@@ -53,10 +55,11 @@ export class Input {
       const k = d > 6 ? Math.min(1, d / (R * 0.6)) / Math.max(d, 1) : 0;
       this.jx = dx * k;
       this.jy = dy * k;
+      this.jrun = d > R * 0.92;
     };
     const end = (e: PointerEvent) => {
       if (e.pointerId !== sid) return;
-      sid = -1; this.jx = this.jy = 0;
+      sid = -1; this.jx = this.jy = 0; this.jrun = false;
       knob.style.transform = '';
     };
     stick.addEventListener('pointerdown', (e) => {
@@ -73,6 +76,9 @@ export class Input {
 
     actBtn.addEventListener('pointerdown', (e) => { this.actionPressed = true; e.preventDefault(); });
   }
+
+  /** Shift held, or joystick pushed all the way out. */
+  get run() { return this.keys.has('shift') || this.jrun; }
 
   /** Movement vector from keys + joystick. */
   axis(out: { x: number; y: number }) {
