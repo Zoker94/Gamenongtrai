@@ -29,12 +29,19 @@ LAYOUT = {
         'g3': (1032, 405, 1334, 670, 'plant'), 'g4': (1665, 405, 1950, 670, 'plant'),
         'ripe': (50, 766, 335, 1034, 'plant'),
     },
+    'rice': {
+        'seed': (1368, 82, 1632, 330, 'grain'),
+        'g1': (50, 405, 335, 670, 'plant'), 'g2': (472, 405, 735, 670, 'plant'),
+        'g3': (1032, 405, 1334, 670, 'plant'), 'g4': (1368, 405, 1632, 670, 'plant'),
+        'ripe': (50, 766, 335, 1034, 'plant'),
+        'item': (1032, 786, 1334, 1034, 'item'),
+    },
 }
 
 
 def is_grey(p):
     r, g, b = p[:3]
-    return abs(r - g) < 10 and abs(g - b) < 10 and 55 < r < 120
+    return abs(r - g) < 10 and abs(g - b) < 10 and 30 < r < 120
 
 
 def is_soil(p):
@@ -76,6 +83,8 @@ def cut(src, box, mode):
             r, g, b = p[:3]
             if mode == 'green':
                 keep = g > r + 15 and g > b + 15
+            elif mode == 'grain':
+                keep = r > 160 and g > 140 and b > 90
             elif mode == 'plant':
                 keep = not is_grey(p) and not is_soil(p)
             else:  # item on grey / dark backgrounds: flood fill from the border

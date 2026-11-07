@@ -11,6 +11,7 @@ export interface CropDef {
 }
 
 export const CROPS: Record<string, CropDef> = {
+  rice:       { id: 'rice',       name: 'Lúa',      seedPrice: 8,  sellPrice: 22,  stageSecs: 20 },
   carrot:     { id: 'carrot',     name: 'Cà rốt',   seedPrice: 10, sellPrice: 25,  stageSecs: 20 },
   turnip:     { id: 'turnip',     name: 'Củ cải',   seedPrice: 12, sellPrice: 30,  stageSecs: 25 },
   tomato:     { id: 'tomato',     name: 'Cà chua',  seedPrice: 20, sellPrice: 55,  stageSecs: 35 },
@@ -56,7 +57,7 @@ export interface StarterPlot { x: number; y: number; c: string; s: number }
 export function newFarm(starter: StarterPlot[] = []): FarmState {
   const plots: Record<string, Plot> = {};
   for (const p of starter) plots[key(p.x, p.y)] = { c: p.c, s: p.s, w: 0 };
-  return { v: 1, coins: 100, inv: { 'seed:carrot': 6, 'seed:turnip': 3 }, plots };
+  return { v: 1, coins: 100, inv: { 'seed:rice': 6, 'seed:carrot': 6, 'seed:tomato': 3 }, plots };
 }
 
 /** Advance growth lazily from timestamps. Returns true when the plot changed. */

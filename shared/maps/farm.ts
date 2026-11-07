@@ -240,8 +240,8 @@ export function buildFarm(): GameMap {
   row(11, 3, 8, 'carrot', 3);
   row(12, 3, 5, 'tomato', 2);
   row(12, 6, 8, 'strawberry', 1);
-  row(13, 3, 4, 'pumpkin', 3);
-  row(13, 5, 6, '', 0);
+  row(13, 3, 6, 'rice', 3);
+  row(13, 7, 8, 'rice', 2);
 
   return {
     id: 'farm',
