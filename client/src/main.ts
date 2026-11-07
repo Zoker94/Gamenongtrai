@@ -220,6 +220,19 @@ function update(dt: number) {
 
 // ----------------------------------------------------------------- render
 interface Drawable { y: number; name: string; x: number; flip: boolean }
+/** Sprite for a plot. Crops with a full asset sheet (cp_<crop>_*) get their own
+ *  stages: seed -> sprout (watered) -> growing -> ripe. */
+function cropFrame(p: Plot): string {
+  const c = p.c;
+  if (atlas.frames[`cp_${c}_g4`]) {
+    if (p.s === 0) return p.w ? `cp_${c}_sprout` : `cp_${c}_seed`;
+    if (p.s === 1) return p.w ? `cp_${c}_g2` : `cp_${c}_g1`;
+    if (p.s === 2) return `cp_${c}_g3`;
+    return `cp_${c}_g4`;
+  }
+  if (p.s === 0) return 'pc_sprout:s';
+  return p.s >= RIPE ? 'pc_' + c : p.s === 1 ? 'pc_sprout:s' : 'pc_sprout';
+}
 const pool: Drawable[] = [];
 const list: Drawable[] = [];
 const byY = (a: Drawable, b: Drawable) => a.y - b.y;
@@ -256,8 +269,7 @@ function render(time: number) {
     if (!p.c) continue;
     // stage 0 = seeds in the furrows (nothing visible yet), 1 = small sprout,
     // 2 = leafy sprout, 3 = ripe plant
-    if (p.s === 0) continue;
-    push(p.s >= RIPE ? 'pc_' + p.c : p.s === 1 ? 'pc_sprout:s' : 'pc_sprout', tx * TILE + 16, ty * TILE + TILE - 3, false);
+    push(cropFrame(p), tx * TILE + 16, ty * TILE + TILE - 3, false);
   }
 
   // target highlight
@@ -294,7 +306,7 @@ function render(time: number) {
       drawAnchored(ctx, atlas, nm, 0, 0, d.flip); ctx.restore();
       continue;
     }
-    const sw = swayFor(d.name.startsWith('pc_') ? 'crop_' : d.name, d.x, d.y, ts);
+    const sw = swayFor(d.name.startsWith('pc_') || d.name.startsWith('cp_') ? 'crop_' : d.name, d.x, d.y, ts);
     if (sw) {
       // shear around the base: the top moves, the roots stay put
       ctx.save();

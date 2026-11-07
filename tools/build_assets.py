@@ -801,7 +801,7 @@ def polish(im, rim=True, sharp=150, color=1.18, contrast=1.08):
     return out
 
 
-GLOSSY = ('flower', 'flowers_', 'd_flower', 'd_clover', 'd_tuft', 'd_sprouts', 'd_mushroom', 'fern', 'plant', 'pc_',
+GLOSSY = ('cp_', 'flower', 'flowers_', 'd_flower', 'd_clover', 'd_tuft', 'd_sprouts', 'd_mushroom', 'fern', 'plant', 'pc_',
           'bush', 'tree', 'trees_', 'forest_')
 
 
@@ -888,6 +888,9 @@ def main():
     # watering can icon from the farming-action panel of sheet 5
     can = cut_object('s5', (1160, 1108, 1262, 1186))
     images['tool_can'] = trim(downscale(can, mult=0.6)); native.add('tool_can')
+    import crops_cut
+    cp = crops_cut.build(RES, T)
+    images.update(cp); native.update(cp)
     images.update(s4_tiles()); native.update(S4_TILES); native.add('gt_furrow_wet')
     # crops render as 1 tile
     for name in list(images):
