@@ -1,0 +1,9 @@
+{
+  "name": "Nông Trại Sủng Vật",
+  "short_name": "Nông Trại",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#1d2330",
+  "theme_color": "#1d2330"
+}

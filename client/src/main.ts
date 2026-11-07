@@ -57,9 +57,15 @@ function useTile(tx: number, ty: number) {
 
 // ------------------------------------------------------------------- view
 let zoom = 2, vw = 0, vh = 0, dpr = 1;
+const cam = { x: 0, y: 0 };
 // ?z=1 forces a zoom level (handy for map overview screenshots while designing)
 const FORCE_ZOOM = Number(new URLSearchParams(location.search).get('z')) || 0;
-const cam = { x: 0, y: 0 };
+// player-chosen zoom, multiplied with the automatic base zoom
+const ZOOM_STEPS = [0.6, 0.75, 0.9, 1, 1.25, 1.5, 1.8, 2.2];
+let zoomStep = 3;
+try { const v = Number(localStorage.getItem('gnt_zoom')); if (v >= 0 && v < ZOOM_STEPS.length) zoomStep = v; } catch { /* ignore */ }
+const zinBtn = document.getElementById('zin') as HTMLButtonElement;
+const zoutBtn = document.getElementById('zout') as HTMLButtonElement;
 
 function resize() {
   dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -67,11 +73,52 @@ function resize() {
   canvas.width = w; canvas.height = h;
   canvas.style.width = innerWidth + 'px';
   canvas.style.height = innerHeight + 'px';
-  // integer zoom: show at least ~11 tiles on the short side
-  zoom = FORCE_ZOOM || Math.max(1, Math.floor(Math.min(w, h) / (11 * TILE)));
+  // base: show ~11 tiles on the short side; never zoom out past the map edges
+  const base = Math.max(1, Math.min(w, h) / (11 * TILE));
+  const fill = Math.max(w / world.pxW, h / world.pxH);
+  zoom = FORCE_ZOOM || Math.max(fill, base * ZOOM_STEPS[zoomStep]);
   vw = w / zoom; vh = h / zoom;
   ctx.imageSmoothingEnabled = false;
+  zinBtn.disabled = zoomStep >= ZOOM_STEPS.length - 1;
+  zoutBtn.disabled = zoomStep <= 0 || zoom <= fill + 1e-6;
 }
+
+function setZoom(delta: number) {
+  const next = Math.max(0, Math.min(ZOOM_STEPS.length - 1, zoomStep + delta));
+  if (next === zoomStep) return;
+  zoomStep = next;
+  try { localStorage.setItem('gnt_zoom', String(zoomStep)); } catch { /* ignore */ }
+  resize();
+  updateCamera(0, true);
+}
+zinBtn.addEventListener('click', () => setZoom(1));
+zoutBtn.addEventListener('click', () => setZoom(-1));
+addEventListener('keydown', (e) => {
+  if (e.key === '+' || e.key === '=') setZoom(1);
+  else if (e.key === '-' || e.key === '_') setZoom(-1);
+});
+canvas.addEventListener('wheel', (e) => {
+  if (!e.ctrlKey) return; // plain wheel switches tools
+  e.preventDefault();
+  setZoom(e.deltaY < 0 ? 1 : -1);
+}, { passive: false });
+
+// ---- landscape: go fullscreen and lock orientation where the browser allows it
+// (Android Chrome). Other phones get the "rotate your phone" screen from CSS.
+async function goLandscape() {
+  try {
+    if (!document.fullscreenElement) await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+    const o = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
+    await o.lock?.('landscape');
+  } catch { /* not supported (iOS Safari...) */ }
+}
+if (input.touch) addEventListener('pointerdown', () => { void goLandscape(); }, { once: true });
+document.getElementById('fs')!.addEventListener('click', () => {
+  if (document.fullscreenElement) void document.exitFullscreen();
+  else void goLandscape();
+});
+if (!document.documentElement.requestFullscreen) document.getElementById('fs')!.hidden = true;
+
 addEventListener('resize', resize);
 resize();
 
