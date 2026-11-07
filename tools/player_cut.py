@@ -1,6 +1,5 @@
-"""Cut the protagonist from assets/source/char_base.png (bald base body with
-full animations) and dress every frame procedurally so he matches the farmer
-of the farm map: straw hat, brown hair, red shirt, blue jeans, brown boots.
+"""Cut the protagonist from assets/source/char_base.png exactly as drawn
+(only the cell background is removed; nothing is added or recoloured).
 
 Returns {atlas_name: RGBA image}. Frame names:
   pl_{idle|walk}_{d|u|r}{0..3}   ('r' cells face LEFT on the sheet)
@@ -200,11 +199,9 @@ def put_hat(im, head):
 
 
 def frame(box, facing, scale):
+    """Cut one cell exactly as drawn (background removed), scaled down."""
     im = cut(box)
-    im, head = dress(im, facing)
-    im = put_hat(im, head)
-    bb = im.getchannel('A').getbbox()
-    im = im.crop(bb)
+    im = im.crop(im.getchannel('A').getbbox())
     w, h = im.size
     small = im.resize((max(1, round(w * scale)), max(1, round(h * scale))), Image.BOX)
     a = small.getchannel('A').point(lambda v: 255 if v >= 110 else 0)
@@ -227,31 +224,8 @@ def build():
         for i in range(4):
             out[f'pl_dig_{f}{i}'] = frame((COLS_A[i], ry0, COLS_A[i] + CW, ry1), f, scale)
             out[f'pl_water_{f}{i}'] = frame((COLS_B[i], ry0, COLS_B[i] + CW, ry1), f, scale)
-    # portrait: dress the framed avatar, keep its wooden frame
-    av = SRC.crop((2218, 970, 2432, 1240)).convert('RGBA')
-    inner = (16, 16, av.width - 16, av.height - 16)
-    body = av.crop(inner)
-    # the avatar background is brown, cut by colour instead of flood fill
-    bp = body.load()
-    bg = bp[3, 3]
-    for y in range(body.height):
-        for x in range(body.width):
-            p = bp[x, y]
-            if sum(abs(p[k] - bg[k]) for k in range(3)) < 40:
-                bp[x, y] = (0, 0, 0, 0)
-    body, head = dress(body, 'd')
-    body = put_hat(body, head)
-    bb = body.getchannel('A').getbbox()
-    body = body.crop(bb)
-    frame_im = av.copy()
-    fp = frame_im.load()
-    for y in range(16, av.height - 16):
-        for x in range(16, av.width - 16):
-            fp[x, y] = bg[:3] + (255,)
-    k = min((av.width - 40) / body.width, (av.height - 30) / body.height)
-    body = body.resize((int(body.width * k), int(body.height * k)), Image.LANCZOS)
-    frame_im.alpha_composite(body, ((av.width - body.width) // 2, av.height - 16 - body.height))
-    out['portrait'] = frame_im.resize((44, 56), Image.LANCZOS)
+    # portrait: the framed avatar as drawn
+    out['portrait'] = SRC.crop((2218, 970, 2432, 1240)).convert('RGBA').resize((44, 56), Image.LANCZOS)
     return out
 
 
