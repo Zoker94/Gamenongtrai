@@ -326,7 +326,7 @@ function render(time: number) {
     const cx = tx * TILE + 16, cy = ty * TILE + 8;
     const ph = ts * 2.2 + tx * 1.7 + ty * 2.9;
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 18);
-    g.addColorStop(0, `rgba(255,230,120,${0.16 + 0.08 * Math.sin(ph)})`);
+    g.addColorStop(0, `rgba(255,230,120,${0.06 + 0.03 * Math.sin(ph)})`);
     g.addColorStop(1, 'rgba(255,230,120,0)');
     ctx.fillStyle = g;
     ctx.fillRect(cx - 18, cy - 18, 36, 36);
@@ -335,7 +335,7 @@ function render(time: number) {
       if (a <= 0.2) continue;
       const sx = cx + Math.sin(ph * 0.7 + j * 3) * 10, sy = cy - 4 + Math.cos(ph * 0.5 + j * 2) * 8;
       const r = 1 + a * 1.6;
-      ctx.fillStyle = `rgba(255,250,210,${a})`;
+      ctx.fillStyle = `rgba(255,250,210,${a * 0.6})`;
       ctx.fillRect(sx - r, sy - 0.5, r * 2, 1);
       ctx.fillRect(sx - 0.5, sy - r, 1, r * 2);
     }

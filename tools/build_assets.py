@@ -801,6 +801,24 @@ def polish(im, rim=True, sharp=150, color=1.18, contrast=1.08):
     return out
 
 
+def soft_gloss(im):
+    """Small, subtle highlight on fruit only (no glow on leaves)."""
+    px = im.load()
+    w, h = im.size
+    fruit = lambda p: p[3] and p[0] > 150 and p[0] > p[1] + 60 and p[2] < 120
+    for y in range(h):
+        for x in range(w):
+            if not fruit(px[x, y]):
+                continue
+            d = 0
+            while d < 6 * RES and x - d - 1 >= 0 and y - d - 1 >= 0 and fruit(px[x - d - 1, y - d - 1]):
+                d += 1
+            if RES <= d <= RES + 1:
+                r_, g_, b_, a_ = px[x, y]
+                px[x, y] = (min(255, r_ + 30), min(255, g_ + 38), min(255, b_ + 38), a_)
+    return im
+
+
 def gloss_fruit(im):
     """Specular highlight on fruit (red / orange blobs): the upper-left part of
     every fruit pixel run gets a soft white shine, like a polished tomato."""
@@ -970,7 +988,8 @@ def main():
 
     for k in list(images):
         if k.startswith('cp_'):
-            images[k] = gloss_fruit(polish(images[k], rim=True, sharp=190, color=1.3, contrast=1.14))
+            # match the softer palette of the map: no extra saturation, gentle shine
+            images[k] = soft_gloss(polish(images[k], rim=False, sharp=110, color=0.9, contrast=0.97))
         elif k.startswith(GLOSSY):
             images[k] = polish(images[k], rim=not k.startswith(('tree', 'trees_', 'forest_')))
         elif k in ('tex_grass', 'tex_grassd', 'tex_tall'):
