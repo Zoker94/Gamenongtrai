@@ -77,12 +77,15 @@ def clone(img, src_rect, dst_xy, base):
 
 
 # beds (tile coords, inclusive) must match FARM_BEDS in shared/maps/farm.ts.
-BEDS = [(14, 8, 15, 9), (18, 8, 19, 9), (21, 8, 22, 9),
-        (14, 11, 15, 14), (18, 11, 19, 14), (21, 11, 22, 14)]
-# how each bed is painted (output px), copied from the mockup's bed positions
-_COLS = [(444, 516), (572, 644), (668, 740)]
-_ROWS = [(244, 323), (341, 483)]
-BED_VISUAL = [(c[0], r[0], c[1], r[1]) for r in _ROWS for c in _COLS]
+# Layout follows assets/source/field_ref.png: 4 beds on top, 3 below (the
+# last one wide).
+BEDS = [(14, 8, 15, 9), (17, 8, 18, 9), (20, 8, 21, 9), (22, 8, 22, 9),
+        (14, 11, 15, 14), (17, 11, 18, 14), (20, 11, 22, 14)]
+# how each bed is painted (output px) + style
+BED_VISUAL = [(452, 242, 522, 330, 'furrow'), (541, 242, 610, 330, 'furrow'),
+              (630, 242, 692, 330, 'plain'), (700, 242, 750, 330, 'plain'),
+              (452, 356, 522, 476, 'furrow'), (541, 356, 610, 476, 'furrow'),
+              (630, 356, 750, 476, 'furrow')]
 
 
 def main():
@@ -130,47 +133,99 @@ def main():
     x0, y0, x1, y1 = orect(1243, 528, 1300, 642)
     clone(img, (x0, y1 + 4, x1, y1 + 4 + (y1 - y0)), (x0, y0), base)
 
-    # ---- 4. beds, matching the painted ones: flat mid-brown soil, soft darker
-    # edge, light lip along the bottom, slightly wavy lower edge
+    # ---- 4. beds in the style of assets/source/field_ref.png: speckled brown
+    # soil with dark vertical furrows, or plain dark freshly-dug soil; ragged
+    # pixel edges in blocks of 2px
     rnd = random.Random(11)
     ip = img.load()
-    for (vx0, vy0, vx1, vy1) in BED_VISUAL:
-        for y in range(vy0, vy1):
-            for x in range(vx0, vx1):
-                # rounded corners (r=3)
-                cx_ = min(x - vx0, vx1 - 1 - x); cy_ = min(y - vy0, vy1 - 1 - y)
-                if cx_ < 3 and cy_ < 3 and (3 - cx_) ** 2 + (3 - cy_) ** 2 > 10:
+    for (vx0, vy0, vx1, vy1, kind) in BED_VISUAL:
+        w, h = vx1 - vx0, vy1 - vy0
+        # ragged inset per 2px block on each side (0..2 px)
+        top = [rnd.choice((0, 0, 1, 2)) for _ in range(w // 2 + 1)]
+        bot = [rnd.choice((0, 0, 1, 2)) for _ in range(w // 2 + 1)]
+        lef = [rnd.choice((0, 0, 1, 2)) for _ in range(h // 2 + 1)]
+        rig = [rnd.choice((0, 0, 1, 2)) for _ in range(h // 2 + 1)]
+        furrows = []
+        if kind == 'furrow':
+            n = max(2, round(w / 17))
+            furrows = [round(w * (k + 0.5) / n) for k in range(n)]
+        for y in range(h):
+            for x in range(w):
+                if (y < top[x // 2] or y >= h - bot[x // 2] or x < lef[y // 2] or x >= w - rig[y // 2]):
                     continue
-                wave = 1 if (x // 5 + vx0) % 3 == 0 else 0
-                if y >= vy1 - 1 - wave:
-                    continue
-                edge = min(x - vx0, vx1 - 1 - x, y - vy0)
-                n = rnd.randint(-5, 5)
-                if y >= vy1 - 3 - wave:
-                    col = (160 + n, 126 + n, 82 + n)        # light lip
-                elif edge == 0:
-                    col = (72, 46, 34)
-                elif edge == 1:
-                    col = (96, 61, 42)
+                d_edge = min(y - top[x // 2], h - 1 - bot[x // 2] - y, x - lef[y // 2], w - 1 - rig[y // 2] - x)
+                rr = rnd.random()
+                if kind == 'plain':
+                    col = (137, 72, 44) if d_edge < 2 else (100, 54, 39)
+                    if d_edge >= 2 and rr < 0.03: col = (122, 66, 44)
+                    elif d_edge >= 2 and rr < 0.05: col = (84, 45, 34)
                 else:
-                    col = (121 + n, 77 + n, 50 + n)
-                    if rnd.random() < 0.04:
-                        col = (104, 66, 44)
-                ip[x, y] = col
+                    col = (137, 72, 44)
+                    if rr < 0.06: col = (156, 88, 52)
+                    elif rr < 0.11: col = (116, 60, 40)
+                    if 2 <= y < h - 2:
+                        for fx in furrows:
+                            dx = abs(x - fx)
+                            if dx == 0 or (dx == 1 and (y + fx) % 7):
+                                col = (82, 42, 38)
+                            elif dx == 1 or (dx == 2 and rr < 0.4):
+                                col = (108, 56, 40)
+                    if d_edge == 0: col = (122, 65, 41)
+                ip[vx0 + x, vy0 + y] = col
 
     # ---- 5. scarecrow back, standing between the bed rows
     sc = base.crop(orect(862, 528, 932, 642))
-    sx, sy = 545 - sc.width // 2, 352 - sc.height
-    # paste only its non-sand pixels
-    mask = Image.new('L', sc.size, 0)
-    mp, sp = mask.load(), sc.load()
+    sx, sy = 576 - sc.width // 2, 350 - sc.height
+    # keep only the scarecrow: flood-fill the background (sand, leaves of the
+    # beds around it, soil) inward from the crop border
+    from collections import deque
+    sp = sc.load()
+    mask = Image.new('L', sc.size, 255)
+    mp = mask.load()
+
+    def bgpx(p_):
+        r_, g_, b_ = p_
+        sandish = abs(r_ - 215) + abs(g_ - 162) + abs(b_ - 75) < 70
+        leafy = g_ > r_ + 10 and g_ > b_ + 25
+        soil = r_ > g_ + 25 and g_ < 110 and b_ < 85 and r_ < 175
+        return sandish or leafy or soil
+    q = deque([(x, 0) for x in range(sc.width)] + [(x, sc.height - 1) for x in range(sc.width)] +
+              [(0, y) for y in range(sc.height)] + [(sc.width - 1, y) for y in range(sc.height)])
+    while q:
+        x, y = q.popleft()
+        if mp[x, y] == 0 or not bgpx(sp[x, y]):
+            continue
+        mp[x, y] = 0
+        for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+            if 0 <= nx < sc.width and 0 <= ny < sc.height and mp[nx, ny]:
+                q.append((nx, ny))
+    # the straw hat and face are the same colour as the sand: keep them by shape
+    for y in range(sc.height):
+        for x in range(sc.width):
+            if ((x - 22) / 17.5) ** 2 + ((y - 13) / 9.5) ** 2 <= 1 or ((x - 22) / 9) ** 2 + ((y - 27) / 7) ** 2 <= 1:
+                mp[x, y] = 255
     for y in range(sc.height):
         for x in range(sc.width):
             r_, g_, b_ = sp[x, y]
-            sandish = r_ > 190 and 140 < g_ < 200 and b_ < 140
-            leafy = g_ > r_ + 15 and g_ > b_ + 30
-            soil = r_ < 150 and r_ > g_ + 25 and g_ < 105 and b_ < 80 and (x < 12 or x > sc.width - 13)
-            mp[x, y] = 0 if (sandish or leafy or soil) else 255
+            if 19 <= x <= 25 and y >= 52 and r_ < 140:       # the wooden pole
+                mp[x, y] = 255
+            if g_ > r_ + 5 and g_ > b_ + 15:                 # no green on a scarecrow
+                mp[x, y] = 0
+    # drop small detached specks (bits of crops at the crop edges)
+    lab = {}
+    for y in range(sc.height):
+        for x in range(sc.width):
+            if mp[x, y] and (x, y) not in lab:
+                comp, st = [], [(x, y)]
+                lab[(x, y)] = 1
+                while st:
+                    a_, b2 = st.pop(); comp.append((a_, b2))
+                    for nx, ny in ((a_ + 1, b2), (a_ - 1, b2), (a_, b2 + 1), (a_, b2 - 1)):
+                        if 0 <= nx < sc.width and 0 <= ny < sc.height and mp[nx, ny] and (nx, ny) not in lab:
+                            lab[(nx, ny)] = 1; st.append((nx, ny))
+                if len(comp) < 60:
+                    for a_, b2 in comp:
+                        mp[a_, b2] = 0
     img.paste(sc, (sx, sy), mask)
 
     # ---- 6. fisherman on the dock: clean water + rebuild the dock end
@@ -229,8 +284,8 @@ def main():
                 solid[cy][cx] = 0
 
     # scarecrow standing between the bed rows (output px)
-    for cy in range(338 // CELL, 350 // CELL + 1):
-        for cx in range(537 // CELL, 553 // CELL + 1):
+    for cy in range(338 // CELL, 348 // CELL + 1):
+        for cx in range(568 // CELL, 584 // CELL + 1):
             solid[cy][cx] = 1
 
     meta = {'w': OW, 'h': OH, 'cell': CELL, 'mask': [''.join(map(str, row)) for row in solid]}

@@ -68,8 +68,9 @@ export interface GameMap {
 
 /** Crop beds, in tiles (inclusive). Must match BEDS in tools/build_farm_map.py. */
 export const FARM_BEDS: Rect[] = [
-  { x0: 14, y0: 8, x1: 15, y1: 9 }, { x0: 18, y0: 8, x1: 19, y1: 9 }, { x0: 21, y0: 8, x1: 22, y1: 9 },
-  { x0: 14, y0: 11, x1: 15, y1: 14 }, { x0: 18, y0: 11, x1: 19, y1: 14 }, { x0: 21, y0: 11, x1: 22, y1: 14 },
+  { x0: 14, y0: 8, x1: 15, y1: 9 }, { x0: 17, y0: 8, x1: 18, y1: 9 },
+  { x0: 20, y0: 8, x1: 21, y1: 9 }, { x0: 22, y0: 8, x1: 22, y1: 9 },
+  { x0: 14, y0: 11, x1: 15, y1: 14 }, { x0: 17, y0: 11, x1: 18, y1: 14 }, { x0: 20, y0: 11, x1: 22, y1: 14 },
 ];
 
 export function buildFarm(): GameMap {
@@ -79,18 +80,22 @@ export function buildFarm(): GameMap {
   const terrainAt = (x: number, y: number): number => (inBed(x, y) ? G.Field : G.Grass);
   const ground = new Uint8Array(W * H);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) ground[y * W + x] = terrainAt(x + 0.5, y + 0.5);
+  // the scarecrow stands on the bottom row of the second bed
+  for (const x of [17, 18]) ground[9 * W + x] = G.Grass;
 
   const starter: StarterPlot[] = [];
   const bed = (i: number, rows: [string, number][]) => {
     const b = FARM_BEDS[i];
     rows.forEach(([c, s], k) => { for (let x = b.x0; x <= b.x1; x++) starter.push({ x, y: b.y0 + k, c, s }); });
   };
+  // like the reference picture: furrowed beds are sown, the two plain beds
+  // top-right are freshly dug and empty
   bed(0, [['carrot', 3], ['carrot', 2]]);
-  bed(1, [['strawberry', 2], ['strawberry', 1]]);
-  bed(2, [['tomato', 3], ['tomato', 3]]);
-  bed(3, [['turnip', 2], ['turnip', 1], ['carrot', 1], ['', 0]]);
-  bed(4, [['tomato', 2], ['tomato', 1], ['eggplant', 2], ['eggplant', 1]]);
-  bed(5, [['pumpkin', 3], ['pumpkin', 2], ['strawberry', 1], ['', 0]]);
+  bed(1, [['strawberry', 2]]);
+  bed(4, [['turnip', 2], ['turnip', 1], ['tomato', 2], ['tomato', 1]]);
+  bed(5, [['eggplant', 2], ['eggplant', 1], ['carrot', 1], ['', 0]]);
+  bed(6, [['pumpkin', 3], ['pumpkin', 2], ['tomato', 3], ['', 0]]);
+  for (const i of [2, 3]) bed(i, [['', 0], ['', 0]]);
 
   const spots: { id: string; x: number; y: number }[] = [];
   for (let y = 16; y <= 18; y++) {
