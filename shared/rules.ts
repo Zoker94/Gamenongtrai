@@ -50,8 +50,22 @@ export type Action =
 
 export const key = (x: number, y: number) => x + ',' + y;
 
+/** A new farm starts with a few rows already growing so it never looks bare. */
 export function newFarm(): FarmState {
-  return { v: 1, coins: 100, inv: { 'seed:carrot': 6, 'seed:turnip': 3 }, plots: {} };
+  const plots: Record<string, Plot> = {};
+  const row = (y: number, x0: number, x1: number, c: string, st: number) => {
+    for (let x = x0; x <= x1; x++) plots[key(x, y)] = { c, s: st, w: 0 };
+  };
+  row(16, 3, 10, 'carrot', RIPE);
+  row(17, 3, 10, 'turnip', 2);
+  row(18, 3, 10, 'eggplant', 1);
+  row(19, 3, 6, '', 0); // tilled, waiting for seeds
+  row(16, 12, 19, 'tomato', 2);
+  row(17, 12, 15, 'strawberry', 1);
+  row(17, 16, 19, 'pumpkin', RIPE);
+  row(18, 12, 19, 'carrot', 0);
+  row(26, 10, 15, 'turnip', 1); // kitchen garden
+  return { v: 1, coins: 100, inv: { 'seed:carrot': 6, 'seed:turnip': 3 }, plots };
 }
 
 /** Advance growth lazily from timestamps. Returns true when the plot changed. */
