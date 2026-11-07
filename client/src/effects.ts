@@ -13,10 +13,11 @@ const rnd = Math.random;
 /** Sway amount (shear) for a sprite, 0 = static. */
 export function swayFor(name: string, x: number, y: number, t: number): number {
   let amp = 0, speed = 1.3;
-  if (name.startsWith('tree') || name === 'forest_pines') amp = 0.022;
-  else if (name.startsWith('flower') || name.startsWith('d_') || name === 'fern' || name === 'plant' || name.startsWith('bush')) { amp = 0.05; speed = 2.1; }
-  else if (name.startsWith('crop_')) { amp = 0.035; speed = 1.8; }
-  else if (name === 'tallgrass_top') { amp = 0.08; speed = 2.4; }
+  // big trees stay still: shearing large pixel art makes it shimmer
+  if (name.startsWith('tree') || name === 'forest_pines') return 0;
+  else if (name.startsWith('flower') || name.startsWith('d_') || name === 'fern' || name === 'plant' || name.startsWith('bush')) { amp = 0.025; speed = 1.6; }
+  else if (name.startsWith('crop_')) { amp = 0.025; speed = 1.5; }
+  else if (name === 'tallgrass_top') { amp = 0.045; speed = 1.8; }
   else return 0;
   // wind gusts travel across the map from west to east
   const gust = 0.6 + 0.4 * Math.sin(t * 0.35 - x * 0.004);

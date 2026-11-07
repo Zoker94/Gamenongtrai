@@ -11,7 +11,7 @@ import { UI } from './ui.ts';
 import { TILE, World } from './world.ts';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
-const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true })!;
+const ctx = canvas.getContext('2d', { alpha: false })!;
 
 const lbar = document.getElementById('lbar') as HTMLElement;
 const ltext = document.getElementById('ltext') as HTMLElement;
@@ -413,13 +413,13 @@ function render(time: number) {
       let nm = d.name.slice(0, -2), k = PG ? PG.cell / TILE * 1.05 : 1;
       if (nm.endsWith(':s')) { nm = nm.slice(0, -2); k *= 0.6; }
       const sw = swayFor(nm.startsWith('cp_rice') ? 'tallgrass_top' : 'crop_', d.x, d.y, ts);
-      ctx.save(); ctx.translate(d.x, d.y); ctx.transform(k, 0, sw * k, k, 0, 0);
+      ctx.save(); ctx.imageSmoothingEnabled = true; ctx.translate(d.x, d.y); ctx.transform(k, 0, sw * k, k, 0, 0);
       drawAnchored(ctx, atlas, nm, 0, 0, d.flip); ctx.restore();
       continue;
     }
     if (d.name.endsWith(':s')) {           // small variant (young sprout)
       const nm = d.name.slice(0, -2), sw = swayFor('crop_', d.x, d.y, ts);
-      ctx.save(); ctx.translate(d.x, d.y); ctx.transform(0.6, 0, sw * 0.6, 0.6, 0, 0);
+      ctx.save(); ctx.imageSmoothingEnabled = true; ctx.translate(d.x, d.y); ctx.transform(0.6, 0, sw * 0.6, 0.6, 0, 0);
       drawAnchored(ctx, atlas, nm, 0, 0, d.flip); ctx.restore();
       continue;
     }
@@ -427,6 +427,7 @@ function render(time: number) {
     if (sw) {
       // shear around the base: the top moves, the roots stay put
       ctx.save();
+      ctx.imageSmoothingEnabled = true;   // sub-pixel sway: filtered, no pixel popping
       ctx.translate(d.x, d.y);
       ctx.transform(1, 0, sw, 1, 0, 0);
       drawAnchored(ctx, atlas, d.name, 0, 0, d.flip);
