@@ -18,7 +18,8 @@ npm run dev        # Vite: http://localhost:5173, server game chạy ở cổng 
 ```
 
 Yêu cầu Node.js ≥ 22.18 (máy chủ chạy trực tiếp file TypeScript, không cần bước build).
-Muốn cắt lại sprite từ ảnh gốc thì chạy `npm run assets` (cần Python 3 và Pillow).
+Muốn cắt lại sprite từ ảnh gốc thì chạy `npm run assets`, dựng lại nền nông trại thì chạy
+`python3 tools/build_farm_map.py` (cần Python 3 và Pillow).
 
 ## Điều khiển
 
@@ -45,7 +46,9 @@ client/            game chạy trên trình duyệt (TypeScript + Canvas 2D, kh�
 server/index.ts    máy chủ Node: phục vụ file tĩnh (brotli/gzip, cache) + WebSocket /ws
 shared/            code dùng chung cho client và server
   rules.ts         luật chơi: cây trồng, xới, gieo, tưới, thu hoạch, mua bán
-  maps/farm.ts     bản đồ nông trại (26×23 ô): có rào bao quanh, chia 4 khu nhà, chuồng, vườn, ao, địa hình là hàm liên tục terrainAt()
+  maps/farm.ts     bản đồ nông trại (38×19 ô): luống trồng, lối ra, điểm tương tác
+tools/build_farm_map.py  dựng nền nông trại từ ảnh thiết kế assets/source/farm_mockup.png
+                 (xoá nhân vật/chữ, vẽ luống đất theo ô, sinh mặt nạ va chạm 4px), địa hình là hàm liên tục terrainAt()
 ```
 
 ## Tối ưu để nhẹ và mượt

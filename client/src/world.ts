@@ -52,9 +52,13 @@ export class World {
   /** per-tile list of box indices */
   private grid: number[][];
 
-  constructor(map: GameMap, atlas: Atlas) {
+  /** painted background (image + 4px solid mask), when the map has one */
+  private bg: { img: CanvasImageSource; mask: string[] } | null;
+
+  constructor(map: GameMap, atlas: Atlas, bg: { img: CanvasImageSource; mask: string[] } | null = null) {
     this.map = map;
     this.atlas = atlas;
+    this.bg = bg;
     this.pxW = map.w * TILE;
     this.pxH = map.h * TILE;
     this.cw = Math.ceil(map.w / CHUNK);
@@ -124,6 +128,12 @@ export class World {
     const k = CELL / TILE;
     for (let y = 0; y < this.fh; y++)
       for (let x = 0; x < this.fw; x++) this.fine[y * this.fw + x] = this.map.terrainAt((x + 0.5) * k, (y + 0.5) * k);
+    if (this.bg) {
+      const m = this.bg.mask;
+      for (let y = 0; y < Math.min(m.length, this.fh); y++)
+        for (let x = 0; x < Math.min(m[y].length, this.fw); x++)
+          if (m[y][x] === '1') this.fine[y * this.fw + x] = G.Solid;
+    }
     // painted scenes carry their own water mask
     for (const sc of this.map.scenes) {
       const mask = this.atlas.masks[sc.s];
@@ -196,6 +206,12 @@ export class World {
         ctx.imageSmoothingEnabled = false;
         const ox = cx * CHUNK, oy = cy * CHUNK;
         const fx0 = cx * CPC, fy0 = cy * CPC;
+        if (this.bg) {
+          // painted map: the artwork already contains everything
+          ctx.drawImage(this.bg.img, ox * TILE, oy * TILE, CHUNK_PX, CHUNK_PX, 0, 0, CHUNK_PX, CHUNK_PX);
+          this.chunks.push(c);
+          continue;
+        }
         // base: grass everywhere
         if (patterns[G.Grass]) {
           patterns[G.Grass].setTransform(new DOMMatrix([1, 0, 0, 1, -ox * TILE, -oy * TILE]));

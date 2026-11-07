@@ -1,7 +1,7 @@
 import './style.css';
 import { buildFarm, isTillable } from '../../shared/maps/farm.ts';
 import { CROPS, RIPE, key, type Plot } from '../../shared/rules.ts';
-import { drawAnchored, drawAt, loadAtlas } from './atlas.ts';
+import { drawAnchored, drawAt, loadAtlas, loadBackground } from './atlas.ts';
 import { Input } from './input.ts';
 import { Store } from './net.ts';
 import { Player } from './player.ts';
@@ -11,9 +11,9 @@ import { TILE, World } from './world.ts';
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true })!;
 
-const atlas = await loadAtlas();
 const map = buildFarm();
-const world = new World(map, atlas);
+const [atlas, bg] = await Promise.all([loadAtlas(), map.background ? loadBackground(map.background) : null]);
+const world = new World(map, atlas, bg);
 const store = new Store((x, y) => isTillable(map, x, y), map.starter);
 const ui = new UI(atlas);
 const input = new Input(canvas, document.getElementById('stick')!, document.getElementById('knob')!, document.getElementById('act')!);
@@ -143,6 +143,7 @@ function update(dt: number) {
 
 // ----------------------------------------------------------------- render
 interface Drawable { y: number; name: string; x: number; flip: boolean }
+const PLAYER_SCALE = 1.4;
 const pool: Drawable[] = [];
 const list: Drawable[] = [];
 const byY = (a: Drawable, b: Drawable) => a.y - b.y;
@@ -205,7 +206,14 @@ function render(time: number) {
       ctx.fillRect(d.x - 7, py - 2, 14, 3);
       ctx.fillRect(d.x - 5, py + 1, 10, 1);
     }
-    drawAnchored(ctx, atlas, d.name, d.x, d.y, d.flip);
+    if (d.name.startsWith('pl_') && map.background) {
+      // painted maps are drawn at a larger scale than the sprite sheet
+      ctx.save();
+      ctx.translate(d.x, d.y);
+      ctx.scale(PLAYER_SCALE, PLAYER_SCALE);
+      drawAnchored(ctx, atlas, d.name, 0, 0, d.flip);
+      ctx.restore();
+    } else drawAnchored(ctx, atlas, d.name, d.x, d.y, d.flip);
   }
 }
 
