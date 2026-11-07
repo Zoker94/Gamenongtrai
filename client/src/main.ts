@@ -400,14 +400,23 @@ function render(time: number) {
   }
   const px = Math.round(player.x), py = Math.round(player.y);
   const [pf, pflip] = player.frame;
-  push(pf, px, py - player.bob, pflip);
+  push(pf, px, py, pflip);
   list.sort(byY);
 
   for (const d of list) {
     if (d.name.startsWith('pl_')) {
+      const [dy, sx, sy, lean] = player.pose;
+      // shadow shrinks a little while the body is in the air
+      const shk = 1 + dy * 0.05;
       ctx.fillStyle = 'rgba(30,36,10,0.3)';
-      ctx.fillRect(d.x - 7, py - 2, 14, 3);
-      ctx.fillRect(d.x - 5, py + 1, 10, 1);
+      ctx.beginPath(); ctx.ellipse(player.x, player.y - 0.5, 7 * shk, 2.4 * shk, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.save();
+      ctx.imageSmoothingEnabled = true;          // sub-pixel motion: glide, don't pop
+      ctx.translate(player.x, player.y + dy);
+      ctx.transform(sx, 0, -lean * sy, sy, 0, 0);
+      drawAnchored(ctx, atlas, d.name, 0, 0, d.flip);
+      ctx.restore();
+      continue;
     }
     if (d.name.endsWith(':p')) {           // crop on a small plot: scaled to the plot
       let nm = d.name.slice(0, -2), k = PG ? PG.cell / TILE * 1.05 : 1;

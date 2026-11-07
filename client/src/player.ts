@@ -51,15 +51,41 @@ export class Player {
     return WALK[this.dir][Math.floor(this.dist / (this.running ? STRIDE_RUN : STRIDE_WALK)) % 4];
   }
 
-  /** small body bob on the passing frames */
-  get bob(): number {
-    if (!this.moving || this.action) return 0;
-    return Math.floor(this.dist / STRIDE_WALK) % 2 ? 1 : 0;
+  /** eased speed factor 0..1 (accelerate / decelerate instead of instant start/stop) */
+  private vel = 0;
+  private vx = 0;
+  private vy = 0;
+  private idleT = 0;
+
+  /** Continuous body motion layered on the sprite frames, so the 2-frame
+   *  walk cycle reads as smooth movement: [dy, scaleX, scaleY, lean]. */
+  get pose(): [number, number, number, number] {
+    if (this.action) {
+      // little anticipation squash at the start of a tool swing
+      const k = Math.max(0, this.action.t - 0.25) / 0.1;
+      return [0, 1 + 0.06 * k, 1 - 0.06 * k, 0];
+    }
+    if (!this.moving || this.vel < 0.05) {
+      // breathing
+      const b = Math.sin(this.idleT * 2.4);
+      return [0, 1 + b * 0.012, 1 - b * 0.018, 0];
+    }
+    const stride = this.running ? STRIDE_RUN : STRIDE_WALK;
+    const ph = (this.dist / stride) * Math.PI;           // one bounce per footstep
+    const up = Math.abs(Math.sin(ph));                     // 0 = foot down, 1 = mid-step
+    const amp = (this.running ? 2.6 : 1.6) * this.vel;
+    const squash = (1 - up) * (this.running ? 0.07 : 0.045) * this.vel; // landing squash
+    const side = this.dir === 1 ? -1 : this.dir === 2 ? 1 : 0;
+    const lean = side * (this.running ? 0.1 : 0.05) * this.vel;          // lean into the walk
+    return [-up * amp, 1 + squash, 1 - squash, lean];
   }
+
+  get bob(): number { return 0; }
 
   /** ix, iy: input vector (-1..1). */
   update(dt: number, ix: number, iy: number, world: World) {
     if (this.action && (this.action.t -= dt) <= 0) this.action = null;
+    this.idleT += dt;
     if (ix || iy) this.target = null;
     else if (this.target) {
       const dx = this.target.x - this.x, dy = this.target.y - this.y;
@@ -68,8 +94,23 @@ export class Player {
       else { ix = dx / d; iy = dy / d; }
     }
     const len = Math.hypot(ix, iy);
-    this.moving = len > 0.15;
-    if (!this.moving) { this.dist = 0; return; }
+    const want = len > 0.15;
+    // ease in / ease out
+    this.vel += ((want ? 1 : 0) - this.vel) * Math.min(1, dt * (want ? 9 : 14));
+    if (!want) {
+      // glide to a stop over a few frames, keep the feet planted
+      if (this.vel > 0.08 && this.moving) {
+        const st = this.speed * this.vel * dt;
+        const nx = this.x + this.vx * st, ny = this.y + this.vy * st;
+        if (!world.blocked(nx - CW / 2, this.y - CH, CW, CH)) this.x = nx;
+        if (!world.blocked(this.x - CW / 2, ny - CH, CW, CH)) this.y = ny;
+        this.dist += st;
+        return;
+      }
+      this.moving = false; this.dist = 0; this.vel = 0;
+      return;
+    }
+    this.moving = true;
     if (len > 1) { ix /= len; iy /= len; }
     // facing with hysteresis: diagonal input keeps the current facing instead
     // of flickering between two directions every frame
@@ -80,7 +121,8 @@ export class Player {
     } else if (horiz) this.dir = ix < 0 ? 1 : ix > 0 ? 2 : this.dir;
     else this.dir = iy < 0 ? 3 : iy > 0 ? 0 : this.dir;
 
-    const step = this.speed * (this.running ? 1.65 : 1) * dt;
+    this.vx = ix; this.vy = iy;
+    const step = this.speed * (this.running ? 1.65 : 1) * Math.max(0.35, this.vel) * dt;
     const mx = ix * step, my = iy * step;
     const ox = this.x, oy = this.y;
     if (mx && !world.blocked(this.x + mx - CW / 2, this.y - CH, CW, CH)) this.x += mx;
