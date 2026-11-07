@@ -91,6 +91,13 @@ export class Player {
     if (moved < step * 0.2) { this.moving = false; this.dist = 0; if (this.target) this.target = null; }
   }
 
+  /** World point just in front of the player's feet. */
+  facingPoint(off = 14): [number, number] {
+    const fx = this.x + (this.dir === 1 ? -off : this.dir === 2 ? off : 0);
+    const fy = this.y - 4 + (this.dir === 3 ? -off : this.dir === 0 ? off - 2 : 0);
+    return [fx, fy];
+  }
+
   /** Tile in front of the player. */
   facingTile(tile: number): [number, number] {
     const off = 18;

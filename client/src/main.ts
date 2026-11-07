@@ -60,19 +60,49 @@ ui.setNet(false);
 setInterval(() => store.tick(), 1000);
 
 /** Perform the selected tool on a tile. */
-function useTile(tx: number, ty: number) {
-  const spot = spots.get(key(tx, ty));
-  if (spot === 'ship') return ui.openShip(store.st);
-  if (spot === 'shop') return ui.openShop(store.st);
+// A target is either a planting plot (plot-grid coords) or a map tile (spots).
+type Target = { plot: boolean; x: number; y: number };
+const PG = map.plotGrid;
+/** plot under a world point, or null */
+function plotAt(wx: number, wy: number): [number, number] | null {
+  if (!PG) {
+    const tx = Math.floor(wx / TILE), ty = Math.floor(wy / TILE);
+    return isTillable(map, tx, ty) ? [tx, ty] : null;
+  }
+  const c = Math.floor((wx - PG.x) / PG.cell), r = Math.floor((wy - PG.y) / PG.cell);
+  return c >= 0 && r >= 0 && c < PG.cols && r < PG.rows ? [c, r] : null;
+}
+/** world rect of a plot */
+function plotRect(c: number, r: number): [number, number, number] {
+  return PG ? [PG.x + c * PG.cell, PG.y + r * PG.cell, PG.cell] : [c * TILE, r * TILE, TILE];
+}
+function targetAt(wx: number, wy: number): Target {
+  const p = plotAt(wx, wy);
+  return p ? { plot: true, x: p[0], y: p[1] } : { plot: false, x: Math.floor(wx / TILE), y: Math.floor(wy / TILE) };
+}
+function targetCenter(t: Target): [number, number] {
+  if (t.plot) { const [x, y, c] = plotRect(t.x, t.y); return [x + c / 2, y + c / 2]; }
+  return [t.x * TILE + TILE / 2, t.y * TILE + TILE / 2];
+}
+
+function useTarget(t: Target) {
+  if (!t.plot) {
+    const spot = spots.get(key(t.x, t.y));
+    if (spot === 'ship') return ui.openShip(store.st);
+    if (spot === 'shop') return ui.openShop(store.st);
+    return ui.toast('Hãy đứng cạnh ô đất trong ruộng', 1200);
+  }
+  const tx = t.x, ty = t.y;
+  const [bx, by, bc] = plotRect(tx, ty);
   const p: Plot | undefined = store.st.plots[key(tx, ty)];
   if (p && p.c && p.s >= RIPE) {
     const c = p.c;
-    if (store.act({ t: 'harvest', x: tx, y: ty })) { ui.toast(`+1 ${CROPS[c].name}`, 900); player.playAction('pl_harvest'); fx.burst(tx * TILE + 16, ty * TILE + 20, 'leaf', 10); }
+    if (store.act({ t: 'harvest', x: tx, y: ty })) { ui.toast(`+1 ${CROPS[c].name}`, 900); player.playAction('pl_harvest'); fx.burst(bx + bc / 2, by + bc / 2, 'leaf', 8); }
     return;
   }
   const slot = ui.current;
-  if (slot.id === 'hoe') { if (store.act({ t: 'till', x: tx, y: ty })) { player.playAction('pl_hoe'); fx.burst(tx * TILE + 16, ty * TILE + 22, 'soil', 10); } }
-  else if (slot.id === 'can') { if (store.act({ t: 'water', x: tx, y: ty })) { player.playAction('pl_water'); fx.burst(tx * TILE + 16, ty * TILE + 18, 'water', 14); } }
+  if (slot.id === 'hoe') { if (store.act({ t: 'till', x: tx, y: ty })) { player.playAction('pl_hoe'); fx.burst(bx + bc / 2, by + bc - 4, 'soil', 8); } }
+  else if (slot.id === 'can') { if (store.act({ t: 'water', x: tx, y: ty })) { player.playAction('pl_water'); fx.burst(bx + bc / 2, by + bc / 2, 'water', 12); } }
   else if (slot.id.startsWith('seed:')) store.act({ t: 'plant', x: tx, y: ty, crop: slot.id.slice(5) });
   else if (p && p.c) ui.toast(`${CROPS[p.c].name}: chưa chín`, 900);
   else ui.toast('Chọn cuốc để xới đất, hạt giống để gieo', 1400);
@@ -162,7 +192,7 @@ const screenToWorld = (sx: number, sy: number) => ({ x: (sx * dpr) / zoom + cam.
 
 // ----------------------------------------------------------------- update
 const axis = { x: 0, y: 0 };
-let target: [number, number] = [0, 0];
+let target: Target = { plot: false, x: -1, y: -1 };
 let exitCooldown = 0;
 let stepT = 0;
 
@@ -184,24 +214,28 @@ function update(dt: number) {
   // pointer: tap a tile near you to use it, far away to walk there
   if (input.tap) {
     const w = screenToWorld(input.tap.x, input.tap.y);
-    const tx = Math.floor(w.x / TILE), ty = Math.floor(w.y / TILE);
-    const cx = tx * TILE + TILE / 2, cy = ty * TILE + TILE / 2;
+    const t = targetAt(w.x, w.y);
+    const [cx, cy] = targetCenter(t);
     if (Math.hypot(cx - player.x, cy - (player.y - 6)) <= TILE * 1.7) {
       player.target = null;
       player.faceToward(cx, cy);
-      useTile(tx, ty);
+      useTarget(t);
     } else {
       player.target = { x: w.x, y: w.y + 4 };
     }
   }
 
-  target = player.facingTile(TILE);
+  {
+    const [fx0, fy0] = player.facingPoint();
+    target = targetAt(fx0, fy0);
+  }
   if (input.hover) {
     const w = screenToWorld(input.hover.x, input.hover.y);
-    const tx = Math.floor(w.x / TILE), ty = Math.floor(w.y / TILE);
-    if (Math.hypot(tx * TILE + 16 - player.x, ty * TILE + 16 - (player.y - 6)) <= TILE * 1.7) target = [tx, ty];
+    const t = targetAt(w.x, w.y);
+    const [cx, cy] = targetCenter(t);
+    if (Math.hypot(cx - player.x, cy - (player.y - 6)) <= TILE * 1.7) target = t;
   }
-  if (input.actionPressed) useTile(target[0], target[1]);
+  if (input.actionPressed) useTarget(target);
   input.consume();
 
   // map exits (other maps come next)
@@ -233,6 +267,35 @@ function cropFrame(p: Plot): string {
   if (p.s === 0) return 'pc_sprout:s';
   return p.s >= RIPE ? 'pc_' + c : p.s === 1 ? 'pc_sprout:s' : 'pc_sprout';
 }
+function roundRect(x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+/** A planting plot: 0 = barren, 1 = tilled, 2 = watered. Textures come from the
+ *  ploughed-soil tile of the user's sheet, clipped to a rounded square. */
+function drawPlot(x: number, y: number, c: number, state: number) {
+  const g = 1.5, r = 5, w = c - g * 2;
+  // soft shadow / rim
+  ctx.fillStyle = 'rgba(60,35,15,0.35)';
+  roundRect(x + g, y + g + 1, w, w, r); ctx.fill();
+  ctx.save();
+  roundRect(x + g, y + g, w, w, r); ctx.clip();
+  if (state === 0) {
+    ctx.fillStyle = '#b07a46';
+    ctx.fillRect(x, y, c, c);
+    ctx.fillStyle = 'rgba(255,230,180,0.12)';
+    ctx.fillRect(x, y, c, c / 3);
+  } else {
+    const f = atlas.frames[state === 2 ? 'gt_furrow_wet' : 'gt_furrow'];
+    if (f) ctx.drawImage(atlas.img, f[0], f[1], f[4] * 0.75, f[5] * 0.75, x + g, y + g, w, w);
+    if (state === 2) { ctx.fillStyle = 'rgba(160,200,255,0.10)'; ctx.fillRect(x, y, c, c / 2); }
+  }
+  ctx.restore();
+  ctx.strokeStyle = state === 0 ? 'rgba(90,55,25,0.55)' : 'rgba(55,30,15,0.7)';
+  ctx.lineWidth = 1;
+  roundRect(x + g + 0.5, y + g + 0.5, w - 1, w - 1, r - 0.5); ctx.stroke();
+}
 const pool: Drawable[] = [];
 const list: Drawable[] = [];
 const byY = (a: Drawable, b: Drawable) => a.y - b.y;
@@ -260,27 +323,34 @@ function render(time: number) {
   const x1 = Math.ceil((camX + vw) / TILE) + 1, y1 = Math.ceil((camY + vh) / TILE) + 1;
   list.length = 0;
   const plots = store.st.plots;
-  for (const k in plots) {
-    const i = k.indexOf(',');
-    const tx = +k.slice(0, i), ty = +k.slice(i + 1);
-    if (tx < x0 || tx > x1 || ty < y0 || ty > y1) continue;
-    const p = plots[k];
-    drawAt(ctx, atlas, p.w ? 'gt_furrow_wet' : 'gt_furrow', tx * TILE, ty * TILE);
-    if (!p.c) continue;
-    // stage 0 = seeds in the furrows (nothing visible yet), 1 = small sprout,
-    // 2 = leafy sprout, 3 = ripe plant
-    push(cropFrame(p), tx * TILE + 16, ty * TILE + TILE - 3, false);
+  if (PG) {
+    // every plot of the planting grid: rounded patch, small gap in between
+    for (let r = 0; r < PG.rows; r++)
+      for (let c = 0; c < PG.cols; c++) {
+        const p = plots[key(c, r)];
+        const [bx, by, bc] = plotRect(c, r);
+        drawPlot(bx, by, bc, p ? (p.w ? 2 : 1) : 0);
+        if (p && p.c) push(cropFrame(p) + ':p', bx + bc / 2, by + bc - 2, false);
+      }
+  } else {
+    for (const k in plots) {
+      const i = k.indexOf(',');
+      const tx = +k.slice(0, i), ty = +k.slice(i + 1);
+      if (tx < x0 || tx > x1 || ty < y0 || ty > y1) continue;
+      const p = plots[k];
+      drawAt(ctx, atlas, p.w ? 'gt_furrow_wet' : 'gt_furrow', tx * TILE, ty * TILE);
+      if (p.c) push(cropFrame(p), tx * TILE + 16, ty * TILE + TILE - 3, false);
+    }
   }
 
   // target highlight
-  const [hx, hy] = target;
-  // only highlight cells that can be worked on (field cells, plots, shop spots)
-  if (!ui.panelOpen && hx >= 0 && hy >= 0 && hx < map.w && hy < map.h
-    && (isTillable(map, hx, hy) || plots[key(hx, hy)] || spots.has(key(hx, hy)))) {
+  if (!ui.panelOpen && (target.plot || spots.has(key(target.x, target.y)))) {
+    const [hx, hy, hc] = target.plot ? plotRect(target.x, target.y) : [target.x * TILE, target.y * TILE, TILE];
     const pulse = 0.45 + 0.25 * Math.sin(time / 180);
     ctx.strokeStyle = `rgba(255,255,255,${pulse})`;
     ctx.lineWidth = 1;
-    ctx.strokeRect(hx * TILE + 0.5, hy * TILE + 0.5, TILE - 1, TILE - 1);
+    roundRect(hx + 1, hy + 1, hc - 2, hc - 2, 5);
+    ctx.stroke();
   }
 
   // y-sorted sprites
@@ -299,6 +369,14 @@ function render(time: number) {
       ctx.fillStyle = 'rgba(30,36,10,0.3)';
       ctx.fillRect(d.x - 7, py - 2, 14, 3);
       ctx.fillRect(d.x - 5, py + 1, 10, 1);
+    }
+    if (d.name.endsWith(':p')) {           // crop on a small plot: scaled to the plot
+      let nm = d.name.slice(0, -2), k = PG ? PG.cell / TILE * 1.05 : 1;
+      if (nm.endsWith(':s')) { nm = nm.slice(0, -2); k *= 0.6; }
+      const sw = swayFor(nm.startsWith('cp_rice') ? 'tallgrass_top' : 'crop_', d.x, d.y, ts);
+      ctx.save(); ctx.translate(d.x, d.y); ctx.transform(k, 0, sw * k, k, 0, 0);
+      drawAnchored(ctx, atlas, nm, 0, 0, d.flip); ctx.restore();
+      continue;
     }
     if (d.name.endsWith(':s')) {           // small variant (young sprout)
       const nm = d.name.slice(0, -2), sw = swayFor('crop_', d.x, d.y, ts);
@@ -322,8 +400,9 @@ function render(time: number) {
     if (!p.c || p.s < RIPE) continue;
     const i = k.indexOf(',');
     const tx = +k.slice(0, i), ty = +k.slice(i + 1);
-    if (tx < x0 || tx > x1 || ty < y0 || ty > y1) continue;
-    const cx = tx * TILE + 16, cy = ty * TILE + 8;
+    const [bx, by, bc] = plotRect(tx, ty);
+    if (bx < camX - 40 || bx > camX + vw + 40 || by < camY - 40 || by > camY + vh + 40) continue;
+    const cx = bx + bc / 2, cy = by + bc / 4;
     const ph = ts * 2.2 + tx * 1.7 + ty * 2.9;
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 18);
     g.addColorStop(0, `rgba(255,230,120,${0.06 + 0.03 * Math.sin(ph)})`);

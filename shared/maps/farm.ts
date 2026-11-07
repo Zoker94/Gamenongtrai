@@ -54,6 +54,9 @@ export interface GameMap {
   tiles?: string[];
   /** terrain type at a fractional tile position (used for smooth rendering) */
   terrainAt: (x: number, y: number) => number;
+  /** fine planting grid (world px origin, cell size in px). Plot keys are
+   *  "col,row" in this grid; without it plots use map tiles. */
+  plotGrid?: { x: number; y: number; cell: number; cols: number; rows: number };
   /** plots already growing on a brand-new farm */
   starter: StarterPlot[];
   /** interactive spots: shipping bin, seed shop */
@@ -233,20 +236,27 @@ export function buildFarm(): GameMap {
     if (inb(col, row) && get(col, row) === G.Field) set(col, row, G.Dirt);
   }
 
-  const starter: StarterPlot[] = [];
-  const row = (y: number, x0: number, x1: number, c: string, st: number) => {
-    for (let x = x0; x <= x1; x++) if (get(x, y) === G.Field) starter.push({ x, y, c, s: st });
+  // planting grid: 24px plots (rounded, spaced) inside the bed area
+  const CELL = 24;
+  const plotGrid = {
+    x: BEDS.x0 * 32, y: BEDS.y0 * 32, cell: CELL,
+    cols: Math.floor(((BEDS.x1 - BEDS.x0 + 1) * 32) / CELL), rows: Math.floor(((BEDS.y1 - BEDS.y0 + 1) * 32) / CELL),
   };
-  row(11, 3, 8, 'carrot', 3);
-  row(12, 3, 5, 'tomato', 2);
-  row(12, 6, 8, 'strawberry', 1);
-  row(13, 3, 6, 'rice', 3);
-  row(13, 7, 8, 'rice', 2);
+  const starter: StarterPlot[] = [];
+  const row = (r: number, c0: number, c1: number, c: string, st: number) => {
+    for (let x = c0; x <= c1; x++) starter.push({ x, y: r, c, s: st });
+  };
+  row(0, 0, 7, 'carrot', 3);
+  row(1, 0, 3, 'tomato', 2);
+  row(1, 4, 7, 'strawberry', 1);
+  row(2, 0, 4, 'rice', 3);
+  row(2, 5, 7, 'rice', 2);
+  row(3, 0, 2, '', 0);
 
   return {
     id: 'farm',
     name: 'Nông trại',
-    w: W, h: H, ground, objects, decals, scenes, tiles, terrainAt, starter,
+    w: W, h: H, ground, objects, decals, scenes, tiles, terrainAt, starter, plotGrid,
     courts: [],
     exits: [
       { x0: W - 1, y0: ROAD_Y - 1, x1: W - 1, y1: ROAD_Y + 1, to: 'town', label: 'Thành phố' },
@@ -261,5 +271,6 @@ export function buildFarm(): GameMap {
 }
 
 export function isTillable(m: GameMap, x: number, y: number) {
+  if (m.plotGrid) return x >= 0 && y >= 0 && x < m.plotGrid.cols && y < m.plotGrid.rows;
   return x >= 0 && y >= 0 && x < m.w && y < m.h && m.ground[y * m.w + x] === G.Field;
 }
