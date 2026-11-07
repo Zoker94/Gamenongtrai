@@ -76,9 +76,13 @@ def clone(img, src_rect, dst_xy, base):
     img.paste(base.crop(src_rect), dst_xy)
 
 
-# beds, aligned to the tile grid (tile coords, inclusive)
-BEDS = [(15, 8, 16, 9), (18, 8, 19, 9), (21, 8, 22, 9),
-        (15, 11, 16, 13), (18, 11, 19, 13), (21, 11, 22, 13)]
+# beds (tile coords, inclusive) must match FARM_BEDS in shared/maps/farm.ts.
+BEDS = [(14, 8, 15, 9), (18, 8, 19, 9), (21, 8, 22, 9),
+        (14, 11, 15, 14), (18, 11, 19, 14), (21, 11, 22, 14)]
+# how each bed is painted (output px), copied from the mockup's bed positions
+_COLS = [(444, 516), (572, 644), (668, 740)]
+_ROWS = [(244, 323), (341, 483)]
+BED_VISUAL = [(c[0], r[0], c[1], r[1]) for r in _ROWS for c in _COLS]
 
 
 def main():
@@ -89,26 +93,74 @@ def main():
     # ---- sand texture patch from a clean stretch of path
     sand = base.crop(orect(1165, 393, 1295, 431))
     # ---- 1. repaint the crop area interior as sand (removes farmers, beds)
-    fill_rect(img, orect(737, 442, 1243, 848), sand, seed=2)
+    fill_rect(img, orect(752, 456, 1230, 834), sand, seed=2)
+    # fringe band: keep the painted grass edge, turn leftover bed soil into sand
+    ox0, oy0, ox1, oy1 = orect(737, 442, 1243, 848)
+    ix0, iy0, ix1, iy1 = orect(752, 456, 1230, 834)
+    sp_ = sand.load(); ip = img.load()
+    for y in range(oy0, oy1):
+        for x in range(ox0, ox1):
+            if ix0 <= x < ix1 and iy0 <= y < iy1:
+                continue
+            r_, g_, b_ = ip[x, y]
+            soil_like = r_ < 175 and g_ < 135 and r_ > g_ + 25 and b_ < g_
+            if soil_like:
+                ip[x, y] = sp_[x % sand.width, y % sand.height]
+    # fringe strips over-painted by crops/farmers: rebuild them by tiling clean
+    # pieces of the same painted edge (mockup coords)
+    def tile_strip(src, dst):
+        sx0, sy0, sx1, sy1 = orect(*src)
+        dx0, dy0, dx1, dy1 = orect(*dst)
+        piece = base.crop((sx0, sy0, sx1, sy1))
+        if dx1 - dx0 > dy1 - dy0:      # horizontal strip
+            x = dx0
+            while x < dx1:
+                img.paste(piece.crop((0, 0, min(piece.width, dx1 - x), dy1 - dy0)), (x, dy0)); x += piece.width
+        else:
+            y = dy0
+            while y < dy1:
+                img.paste(piece.crop((0, 0, dx1 - dx0, min(piece.height, dy1 - y))), (dx0, y)); y += piece.height
+    tile_strip((876, 430, 918, 457), (748, 430, 1232, 457))      # top edge
+    tile_strip((882, 832, 918, 856), (748, 832, 1232, 856))      # bottom edge
+    tile_strip((1228, 676, 1252, 720), (1228, 457, 1252, 832))   # right edge
+
     # ---- 2. label "KHU VỰC TRỒNG TRỌT" on the road
     fill_rect(img, orect(812, 390, 1166, 434), sand, seed=3)
     # ---- 3. watering farmer outside the crop area: copy the strip just below
     x0, y0, x1, y1 = orect(1243, 528, 1300, 642)
     clone(img, (x0, y1 + 4, x1, y1 + 4 + (y1 - y0)), (x0, y0), base)
 
-    # ---- 4. beds: dark soil with a rim, aligned to tiles
-    soil_src = Image.open(os.path.join(ROOT, 'assets/source/sheet4.png')).convert('RGB')
-    soil = soil_src.crop((1402, 252, 1530, 325)).resize((44, 25), Image.BOX)
-    for (tx0, ty0, tx1, ty1) in BEDS:
-        r = (tx0 * T - 3, ty0 * T - 3, (tx1 + 1) * T + 3, (ty1 + 1) * T + 3)
-        d.rectangle(r, fill=(74, 46, 30))
-        fill_rect(img, (r[0] + 2, r[1] + 2, r[2] - 2, r[3] - 2), soil, seed=tx0 * 7 + ty0)
-        d.line([(r[0] + 2, r[1] + 2), (r[2] - 3, r[1] + 2)], fill=(58, 36, 24))
-        d.line([(r[0], r[3] + 1), (r[2], r[3] + 1)], fill=(150, 112, 62))   # light lip below
+    # ---- 4. beds, matching the painted ones: flat mid-brown soil, soft darker
+    # edge, light lip along the bottom, slightly wavy lower edge
+    rnd = random.Random(11)
+    ip = img.load()
+    for (vx0, vy0, vx1, vy1) in BED_VISUAL:
+        for y in range(vy0, vy1):
+            for x in range(vx0, vx1):
+                # rounded corners (r=3)
+                cx_ = min(x - vx0, vx1 - 1 - x); cy_ = min(y - vy0, vy1 - 1 - y)
+                if cx_ < 3 and cy_ < 3 and (3 - cx_) ** 2 + (3 - cy_) ** 2 > 10:
+                    continue
+                wave = 1 if (x // 5 + vx0) % 3 == 0 else 0
+                if y >= vy1 - 1 - wave:
+                    continue
+                edge = min(x - vx0, vx1 - 1 - x, y - vy0)
+                n = rnd.randint(-5, 5)
+                if y >= vy1 - 3 - wave:
+                    col = (160 + n, 126 + n, 82 + n)        # light lip
+                elif edge == 0:
+                    col = (72, 46, 34)
+                elif edge == 1:
+                    col = (96, 61, 42)
+                else:
+                    col = (121 + n, 77 + n, 50 + n)
+                    if rnd.random() < 0.04:
+                        col = (104, 66, 44)
+                ip[x, y] = col
 
     # ---- 5. scarecrow back, standing between the bed rows
     sc = base.crop(orect(862, 528, 932, 642))
-    sx, sy = 17 * T + 16 - sc.width // 2, 11 * T - 4 - sc.height
+    sx, sy = 545 - sc.width // 2, 352 - sc.height
     # paste only its non-sand pixels
     mask = Image.new('L', sc.size, 0)
     mp, sp = mask.load(), sc.load()
@@ -117,7 +169,8 @@ def main():
             r_, g_, b_ = sp[x, y]
             sandish = r_ > 190 and 140 < g_ < 200 and b_ < 140
             leafy = g_ > r_ + 15 and g_ > b_ + 30
-            mp[x, y] = 0 if (sandish or leafy) else 255
+            soil = r_ < 150 and r_ > g_ + 25 and g_ < 105 and b_ < 80 and (x < 12 or x > sc.width - 13)
+            mp[x, y] = 0 if (sandish or leafy or soil) else 255
     img.paste(sc, (sx, sy), mask)
 
     # ---- 6. fisherman on the dock: clean water + rebuild the dock end
@@ -176,8 +229,8 @@ def main():
                 solid[cy][cx] = 0
 
     # scarecrow standing between the bed rows (output px)
-    for cy in range((11 * T - 14) // CELL, (11 * T - 2) // CELL + 1):
-        for cx in range((17 * T + 8) // CELL, (17 * T + 24) // CELL + 1):
+    for cy in range(338 // CELL, 350 // CELL + 1):
+        for cx in range(537 // CELL, 553 // CELL + 1):
             solid[cy][cx] = 1
 
     meta = {'w': OW, 'h': OH, 'cell': CELL, 'mask': [''.join(map(str, row)) for row in solid]}

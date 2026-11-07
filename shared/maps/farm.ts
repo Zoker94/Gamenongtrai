@@ -68,8 +68,8 @@ export interface GameMap {
 
 /** Crop beds, in tiles (inclusive). Must match BEDS in tools/build_farm_map.py. */
 export const FARM_BEDS: Rect[] = [
-  { x0: 15, y0: 8, x1: 16, y1: 9 }, { x0: 18, y0: 8, x1: 19, y1: 9 }, { x0: 21, y0: 8, x1: 22, y1: 9 },
-  { x0: 15, y0: 11, x1: 16, y1: 13 }, { x0: 18, y0: 11, x1: 19, y1: 13 }, { x0: 21, y0: 11, x1: 22, y1: 13 },
+  { x0: 14, y0: 8, x1: 15, y1: 9 }, { x0: 18, y0: 8, x1: 19, y1: 9 }, { x0: 21, y0: 8, x1: 22, y1: 9 },
+  { x0: 14, y0: 11, x1: 15, y1: 14 }, { x0: 18, y0: 11, x1: 19, y1: 14 }, { x0: 21, y0: 11, x1: 22, y1: 14 },
 ];
 
 export function buildFarm(): GameMap {
@@ -88,9 +88,9 @@ export function buildFarm(): GameMap {
   bed(0, [['carrot', 3], ['carrot', 2]]);
   bed(1, [['strawberry', 2], ['strawberry', 1]]);
   bed(2, [['tomato', 3], ['tomato', 3]]);
-  bed(3, [['turnip', 2], ['turnip', 1], ['', 0]]);
-  bed(4, [['tomato', 1], ['eggplant', 2], ['eggplant', 1]]);
-  bed(5, [['pumpkin', 3], ['pumpkin', 2], ['', 0]]);
+  bed(3, [['turnip', 2], ['turnip', 1], ['carrot', 1], ['', 0]]);
+  bed(4, [['tomato', 2], ['tomato', 1], ['eggplant', 2], ['eggplant', 1]]);
+  bed(5, [['pumpkin', 3], ['pumpkin', 2], ['strawberry', 1], ['', 0]]);
 
   const spots: { id: string; x: number; y: number }[] = [];
   for (let y = 16; y <= 18; y++) {

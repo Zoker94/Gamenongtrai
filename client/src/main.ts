@@ -174,7 +174,8 @@ function render(time: number) {
     const tx = +k.slice(0, i), ty = +k.slice(i + 1);
     if (tx < x0 || tx > x1 || ty < y0 || ty > y1) continue;
     const p = plots[k];
-    drawAt(ctx, atlas, p.w ? 'tile_soil_wet' : 'tile_soil', tx * TILE, ty * TILE);
+    if (!map.background) drawAt(ctx, atlas, p.w ? 'tile_soil_wet' : 'tile_soil', tx * TILE, ty * TILE);
+    else if (p.w) { ctx.fillStyle = 'rgba(40,20,10,0.35)'; ctx.fillRect(tx * TILE + 1, ty * TILE + 1, TILE - 2, TILE - 2); }
     if (!p.c) continue;
     if (p.s === 0) drawAt(ctx, atlas, 'seeds', tx * TILE, ty * TILE);
     else push(p.s >= RIPE ? 'crop_' + p.c : p.s === 1 ? 'crop_young' : 'crop_sprout', tx * TILE + 16, ty * TILE + TILE - 1, false);
