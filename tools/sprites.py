@@ -6,6 +6,7 @@ Everything is downscaled by SCALE so a 120px source tile becomes a 32px game til
 SCALE = 32 / 120
 
 # optional 7th value: extra scale multiplier (sheet 2 draws some things smaller)
+# kind: 'scene' => painted scene: surrounding grass removed, + walkability mask
 # kind: 'obj' => background removed (flood fill from crop border)
 #       'tile' => opaque crop, resized to exactly 32x32
 SPRITES = {
@@ -151,4 +152,7 @@ SPRITES = {
     'dummy3':         ('s2', 1700, 475, 1815, 605, 'obj'),
     'scarecrow2':     ('s2', 1255, 478, 1358, 600, 'obj'),
     'stall_red':      ('s2', 2310, 600, 2475, 735, 'obj'),
+
+    # ---- painted pond scene (sheet 3): bank, lily pads, reeds, docks, boat
+    'pond_scene':     ('s3', 37, 88, 918, 726, 'scene', 1.1),
 }

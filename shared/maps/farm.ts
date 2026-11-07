@@ -9,8 +9,8 @@
 //   |  house yard          |  animal pen (fenced) |
 //   |  well, shipping bin  |  barn, silo, coop    |
 //   +------- road ---------+------ road --> town  |
-//   |  garden (fenced)     |  fish pond           |
-//   |  field, greenhouse   |  dock, rocks, reeds  |
+//   |  garden (fenced)     |  fish pond (painted  |
+//   |  field, greenhouse   |  scene: docks, lilies)|
 //   +--------- road to the park (south gate) -----+
 
 export const G = {
@@ -49,6 +49,8 @@ export interface GameMap {
   objects: MapObject[];
   /** flat sprites baked into the ground layer (no collision, under the player) */
   decals: MapObject[];
+  /** large painted ground scenes (e.g. the pond); their atlas mask marks water */
+  scenes: MapObject[];
   /** sports courts: white lines are painted on the sand */
   courts: Rect[];
   exits: Exit[];
@@ -97,12 +99,10 @@ export function buildFarm(): GameMap {
   const GARDEN: Rect = { x0: 2, y0: 11, x1: 11, y1: 19 };       // garden fence (shares the perimeter)
   const FIELD: Rect = { x0: 4, y0: 12, x1: 10, y1: 14 };        // tillable soil
   const HERBS: Rect = { x0: 8, y0: 16, x1: 10, y1: 17 };        // small herb/veg beds
-  const POND = { x: 18.6, y: 15.6, rx: 3.6, ry: 2.3 };
   const ROADS: number[][][] = [
     [[6.5, 7.6], [6.5, 9.6], [12.5, 9.7], [26.5, 9.6]],         // porch -> road -> east gate (town)
     [[12.5, 9.7], [12.6, 15], [12.5, 23.5]],                    // south gate (park)
-    [[12.6, 14.3], [14.6, 14.4]],                               // jetty path to the pond
-    [[17.8, 8.4], [17.8, 9.6]],                                 // pen gate
+    [[17.8, 8.4], [17.8, 9.6], [18.1, 12.9]],                   // pen gate -> across the road -> pond dock
     [[7.5, 10], [7.5, 11.4]],                                   // garden gate
   ];
 
@@ -122,8 +122,6 @@ export function buildFarm(): GameMap {
     let g: number = G.Grass;
     // forest floor outside the fence
     if (x < FARM.x0 + 0.3 || y < FARM.y0 + 0.3 || x > FARM.x1 + 0.7 || y > FARM.y1 + 0.7) g = G.DarkGrass;
-    { const dx = (x - POND.x) / POND.rx, dy = (y - POND.y) / POND.ry;
-      if (dx * dx + dy * dy < 1 + fine(x, y, 7) * 0.08) return G.Water; }
     if (inRect(x, y, FIELD) || inRect(x, y, HERBS)) return G.Field;
     for (let i = 0; i < ROADS.length; i++) {
       const b = roadBoxes[i];
@@ -132,7 +130,6 @@ export function buildFarm(): GameMap {
       if (distToPolyline(x, y, ROADS[i]) <= w + fine(x, y, 1) * 0.18) g = G.Dirt;
     }
     if (inRect(x, y, { x0: 5, y0: 7, x1: 7, y1: 7 })) g = G.Stone;   // porch
-    if (inRect(x, y, { x0: 14, y0: 14, x1: 15, y1: 14 })) g = G.Bridge; // little wooden jetty
     return g;
   };
 
@@ -222,26 +219,20 @@ export function buildFarm(): GameMap {
   o('barrel_herb', 3.2, 11.8);
   reserve(3, 11, 11, 19);
 
-  // --- fish pond (south-east)
-  o('table', 15.2, 13.2);         // fisherman's table by the jetty
-  o('barrel', 14.2, 13.4);
-  o('bucket', 16.2, 13.6);
-  o('sign', 14.2, 11.6);
-  o('bench', 18.6, 12.4);
-  o('rock_big', 22.4, 13.6);
-  o('rock_s2', 21.8, 18.4);
-  o('rock_s1', 15.2, 18.4);
-  o('fern', 14.4, 16.6);
-  o('plant', 22.6, 16.2);
-  o('flowers_lav', 16.6, 18.6);
-  o('flowers_lav', 20.6, 12.6);
-  o('mushrooms', 22.6, 18.6);
-  o('log', 20.4, 18.8);
-  o('stump_moss', 14.4, 18.6);
-  o('flower_bush_t', 22.4, 11.4);
-  o('flowers_y', 17.4, 11.6);
-  o('fern', 21.8, 15.4);
-  o('plant', 15.4, 16.8);
+  // --- fish pond (south-east): a painted scene with bank, lily pads, reeds,
+  // three wooden docks, posts, a boat and a fishing spot. Its water mask
+  // (from the atlas) makes the water solid; docks and banks stay walkable.
+  const scenes: MapObject[] = [{ s: 'pond_scene', x: 17.75, y: 19 }];
+  o('sign', 15.4, 11.3);           // "Ao cá"
+  o('sack', 14.4, 11.5);
+  o('bucket', 19.6, 11.6);
+  o('barrel', 20.6, 11.3);
+  o('bench', 22, 11.6);
+  o('flowers_y', 16.6, 11.2);
+  o('fern', 13.7, 17.6);
+  o('mushrooms', 13.7, 15.4);
+  o('flower_bush_t', 22.6, 14.6);
+  o('flowers_lav', 22.6, 17.4);
   reserve(14, 11, 23, 19);
 
   // keep roads, fields and water free of random stuff
@@ -309,7 +300,7 @@ export function buildFarm(): GameMap {
   return {
     id: 'farm',
     name: 'Nông trại',
-    w: W, h: H, ground, objects, decals, terrainAt, starter,
+    w: W, h: H, ground, objects, decals, scenes, terrainAt, starter,
     courts: [],
     exits: [
       { x0: W - 1, y0: 8, x1: W - 1, y1: 11, to: 'town', label: 'Thành phố' },

@@ -5,7 +5,7 @@ player character, then pack everything into one small palette PNG atlas.
 Usage: python3 tools/build_assets.py [--preview out.png]
 Output: client/public/assets/atlas.png + atlas.json
 """
-import json, os, random, sys
+import json, math, os, random, sys
 from collections import deque
 from PIL import Image, ImageDraw
 
@@ -19,6 +19,7 @@ T = 32
 sheets = {
     's1': Image.open(os.path.join(ROOT, 'assets/source/sheet1.png')).convert('RGB'),
     's2': Image.open(os.path.join(ROOT, 'assets/source/sheet2.png')).convert('RGB'),
+    's3': Image.open(os.path.join(ROOT, 'assets/source/sheet3.png')).convert('RGB'),
 }
 
 
@@ -89,6 +90,101 @@ def drop_border_fragments(im):
         if len(pts) < biggest * 0.2 and (border or len(pts) < 40):
             for x, y in pts:
                 px[x, y] = (0, 0, 0, 0)
+
+
+def is_grass(p):
+    r, g, b = p[:3]
+    return g > r + 30 and g > b + 30 and g > 90
+
+
+def cut_scene(sheet, box):
+    """A painted scene (e.g. the pond): remove the surrounding grass by flood
+    filling green from the crop border, keep everything else (bank, water,
+    lily pads, docks...). Returns RGBA."""
+    im = sheets[sheet].crop(box).convert('RGBA')
+    w, h = im.size
+    px = im.load()
+    seen = bytearray(w * h)
+    q = deque([(x, 0) for x in range(w)] + [(x, h - 1) for x in range(w)] +
+              [(0, y) for y in range(h)] + [(w - 1, y) for y in range(h)])
+    while q:
+        x, y = q.popleft()
+        i = y * w + x
+        if seen[i]:
+            continue
+        seen[i] = 1
+        if not (is_grass(px[x, y]) or is_bg(px[x, y])):
+            continue
+        px[x, y] = (0, 0, 0, 0)
+        for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+            if 0 <= nx < w and 0 <= ny < h and not seen[ny * w + nx]:
+                q.append((nx, ny))
+    return im
+
+
+def is_water(p):
+    r, g, b, a = p
+    return a and b > r + 35 and b > g + 10
+
+
+def close_scene(im, M=14):
+    """The painted pond runs off the bottom/right edge of its panel. Extend it
+    by M px: water continues and ends in a wavy shore (foam + grass rim),
+    docks that touch the edge keep going until they reach the shore."""
+    w, h = im.size
+    out = Image.new('RGBA', (w + M, h + M), (0, 0, 0, 0))
+    out.paste(im, (0, 0))
+    src, px = im.load(), out.load()
+    WATER = (64, 128, 188, 255)
+    shore_b = [h + 5 + round(2 * math.sin(x / 9) + 1.4 * math.sin(x / 3.7)) for x in range(w + M)]
+    shore_r = [w + 5 + round(2 * math.sin(y / 8) + 1.4 * math.sin(y / 3.1)) for y in range(h + M)]
+    for y in range(h + M):
+        for x in range(w + M):
+            if x < w and y < h:
+                continue
+            sx, sy = min(x, w - 1), min(y, h - 1)
+            edge = src[sx, sy]
+            limit_ok = y <= shore_b[x] and x <= shore_r[y]
+            if not limit_ok:
+                continue
+            if is_water(edge):
+                px[x, y] = WATER
+            elif edge[3] and edge[0] > edge[2] + 30:          # dock planks: repeat the last 8 rows/cols
+                if y >= h:
+                    px[x, y] = src[sx, h - 8 + (y - h) % 8]
+                else:
+                    px[x, y] = src[w - 8 + (x - w) % 8, sy]
+    # foam on water touching transparency, dark grass rim just outside
+    snap = out.copy().load()
+    for y in range(h + M):
+        for x in range(w + M):
+            if (x < w - 2 and y < h - 2) or not is_water(snap[x, y]):
+                continue
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < w + M and 0 <= ny < h + M and snap[nx, ny][3] == 0:
+                    px[x, y] = (196, 232, 246, 255)
+                    px[nx, ny] = (58, 112, 52, 255)
+    return out
+
+
+def water_mask(im, cell=4):
+    """Rows of '0'/'1' per cell: 1 = water/rock the player cannot walk on."""
+    px = im.load()
+    rows = []
+    for cy in range(0, im.height, cell):
+        row = []
+        for cx in range(0, im.width, cell):
+            wet = tot = 0
+            for y in range(cy, min(cy + cell, im.height)):
+                for x in range(cx, min(cx + cell, im.width)):
+                    r, g, b, a = px[x, y]
+                    tot += 1
+                    if is_water((r, g, b, a)):
+                        wet += 1
+            row.append('1' if wet * 2 >= tot else '0')
+        rows.append(''.join(row))
+    return rows
 
 
 def downscale(im, size=None, mult=1.0):
@@ -467,11 +563,25 @@ def pack(images):
 
 def main():
     images = {}
+    masks = {}
     for name, spec in SPRITES.items():
         sh, x0, y0, x1, y1, kind = spec[:6]
         mult = spec[6] if len(spec) > 6 else 1.0
         if kind == 'tile':
             images[name] = downscale(sheets[sh].crop((x0, y0, x1, y1)).convert('RGBA'), (T, T))
+        elif kind == 'scene':
+            im = close_scene(downscale(cut_scene(sh, (x0, y0, x1, y1)), mult=mult))
+            if name == 'pond_scene':  # drop the muddy path patch in the bottom-left corner of the painting
+                cp = im.load()
+                for yy in range(int(im.height * 0.66), im.height):
+                    for xx in range(0, 26):
+                        if not is_water(cp[xx, yy]):
+                            cp[xx, yy] = (0, 0, 0, 0)
+            # pad so the size is a multiple of the 4px collision cell
+            pw, ph = -(-im.width // 4) * 4, -(-im.height // 4) * 4
+            padded = Image.new('RGBA', (pw, ph), (0, 0, 0, 0)); padded.paste(im, (0, 0))
+            images[name] = padded
+            masks[name] = water_mask(padded)
         else:
             images[name] = trim(downscale(cut_object(sh, (x0, y0, x1, y1)), mult=mult))
     # crops render as 1 tile
@@ -517,7 +627,7 @@ def main():
     png_path = os.path.join(OUT_DIR, 'atlas.png')
     q.save(png_path, optimize=True)
     with open(os.path.join(OUT_DIR, 'atlas.json'), 'w') as f:
-        json.dump({'w': atlas.width, 'h': atlas.height, 'frames': rects}, f, separators=(',', ':'))
+        json.dump({'w': atlas.width, 'h': atlas.height, 'frames': rects, 'masks': masks}, f, separators=(',', ':'))
     print(f'atlas {atlas.width}x{atlas.height}, {len(rects)} sprites, {os.path.getsize(png_path)//1024} KB')
 
     if '--preview' in sys.argv:

@@ -124,6 +124,25 @@ export class World {
     const k = CELL / TILE;
     for (let y = 0; y < this.fh; y++)
       for (let x = 0; x < this.fw; x++) this.fine[y * this.fw + x] = this.map.terrainAt((x + 0.5) * k, (y + 0.5) * k);
+    // painted scenes carry their own water mask
+    for (const sc of this.map.scenes) {
+      const mask = this.atlas.masks[sc.s];
+      const [l, t] = this.sceneOrigin(sc);
+      if (!mask) continue;
+      const cx0 = l / CELL, cy0 = t / CELL;
+      for (let y = 0; y < mask.length; y++)
+        for (let x = 0; x < mask[y].length; x++) {
+          const fx = cx0 + x, fy = cy0 + y;
+          if (mask[y][x] === '1' && fx >= 0 && fy >= 0 && fx < this.fw && fy < this.fh) this.fine[fy * this.fw + fx] = G.Water;
+        }
+    }
+  }
+
+  /** Top-left of a scene in world px, snapped to the collision cell grid. */
+  private sceneOrigin(sc: MapObject): [number, number] {
+    const f = this.atlas.frames[sc.s];
+    const px = sc.x * TILE + TILE / 2, py = sc.y * TILE;
+    return [Math.round((px - f[2] / 2) / CELL) * CELL, Math.round((py - f[3]) / CELL) * CELL];
   }
 
   private texture(g: number, tx: number, ty: number): string {
@@ -206,10 +225,17 @@ export class World {
           ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 2;
           ctx.beginPath(); ctx.arc(mx + 1, my, 26, 0, Math.PI * 2); ctx.stroke();
         }
-        // decals (tiny flowers, tufts...) then soft contact shadows
+        // painted scenes (pond...), then decals (tiny flowers, tufts...), then soft contact shadows
+        for (const sc of this.map.scenes) {
+          const f = this.atlas.frames[sc.s];
+          if (!f) continue;
+          const [l, t] = this.sceneOrigin(sc);
+          if (l > (ox + CHUNK) * TILE || t > (oy + CHUNK) * TILE || l + f[2] < ox * TILE || t + f[3] < oy * TILE) continue;
+          drawAt(ctx, this.atlas, sc.s, l, t);
+        }
         for (const d of this.map.decals) {
           const px = d.x * TILE + TILE / 2, py = d.y * TILE;
-          if (near(px, py, 64)) drawAnchored(ctx, this.atlas, d.s, px, py, !!d.f);
+          if (near(px, py, 64) && !this.underScene(px, py)) drawAnchored(ctx, this.atlas, d.s, px, py, !!d.f);
         }
         ctx.fillStyle = 'rgba(18,40,22,0.26)';
         for (const o of this.objects) {
@@ -220,6 +246,15 @@ export class World {
         }
         this.chunks.push(c);
       }
+  }
+
+  private underScene(px: number, py: number) {
+    for (const sc of this.map.scenes) {
+      const f = this.atlas.frames[sc.s];
+      const [l, t] = this.sceneOrigin(sc);
+      if (f && px >= l && px < l + f[2] && py >= t && py < t + f[3]) return true;
+    }
+    return false;
   }
 
   /** Pixel-art outlines where terrain types meet (grass rim, shore, bridge rails, cliff shadow). */

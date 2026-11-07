@@ -3,6 +3,8 @@ export type Frame = [x: number, y: number, w: number, h: number];
 export interface Atlas {
   img: CanvasImageSource;
   frames: Record<string, Frame>;
+  /** per-sprite walkability masks (rows of '0'/'1', 4px cells; 1 = water) */
+  masks: Record<string, string[]>;
 }
 
 export async function loadAtlas(base = '/assets/'): Promise<Atlas> {
@@ -19,7 +21,7 @@ export async function loadAtlas(base = '/assets/'): Promise<Atlas> {
     await el.decode();
     img = el;
   }
-  return { img, frames: meta.frames };
+  return { img, frames: meta.frames, masks: meta.masks || {} };
 }
 
 /** Draw sprite with its bottom-centre at (x, y). */
