@@ -772,8 +772,9 @@ def main():
     images['tile_tallgrass'] = make_tall_grass_tile(600)
     images['tallgrass_top'] = tall_grass_top(601)
     images['seeds'] = make_seeds(images['tile_soil'])
-    # HUD portrait (opaque, keeps its orange frame)
-    images['portrait'] = sheets['s5'].crop((2278, 138, 2552, 398)).convert('RGBA').resize((44, 42), Image.BOX)
+    # protagonist: base body from char_base.png dressed as the farmer of the map
+    import player_dress
+    images.update(player_dress.build())
     images.update(tool_icons())
 
     atlas, rects = pack(images)

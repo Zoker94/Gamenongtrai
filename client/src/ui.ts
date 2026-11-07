@@ -24,7 +24,7 @@ export class UI {
   constructor(atlas: Atlas) {
     this.atlas = atlas;
     const av = $('avatar');
-    av.replaceChildren(this.iconEl('portrait', 44));
+    av.replaceChildren(this.iconEl('portrait', 56));
     this.hotbar.addEventListener('pointerdown', (e) => {
       const el = (e.target as HTMLElement).closest('[data-i]') as HTMLElement | null;
       if (el) { this.select(+el.dataset.i!); e.preventDefault(); }

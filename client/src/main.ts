@@ -44,12 +44,12 @@ function useTile(tx: number, ty: number) {
   const p: Plot | undefined = store.st.plots[key(tx, ty)];
   if (p && p.c && p.s >= RIPE) {
     const c = p.c;
-    if (store.act({ t: 'harvest', x: tx, y: ty })) { ui.toast(`+1 ${CROPS[c].name}`, 900); player.playAction('pl_harvest'); }
+    if (store.act({ t: 'harvest', x: tx, y: ty })) { ui.toast(`+1 ${CROPS[c].name}`, 900); }
     return;
   }
   const slot = ui.current;
-  if (slot.id === 'hoe') { if (store.act({ t: 'till', x: tx, y: ty })) player.playAction('pl_hoe'); }
-  else if (slot.id === 'can') { if (store.act({ t: 'water', x: tx, y: ty })) player.playAction('pl_water'); }
+  if (slot.id === 'hoe') { if (store.act({ t: 'till', x: tx, y: ty })) player.playAction('dig'); }
+  else if (slot.id === 'can') { if (store.act({ t: 'water', x: tx, y: ty })) player.playAction('water'); }
   else if (slot.id.startsWith('seed:')) store.act({ t: 'plant', x: tx, y: ty, crop: slot.id.slice(5) });
   else if (p && p.c) ui.toast(`${CROPS[p.c].name}: chưa chín`, 900);
   else ui.toast('Chọn cuốc để xới đất, hạt giống để gieo', 1400);
@@ -143,7 +143,7 @@ function update(dt: number) {
 
 // ----------------------------------------------------------------- render
 interface Drawable { y: number; name: string; x: number; flip: boolean }
-const PLAYER_SCALE = 1.4;
+const PLAYER_SCALE = 0.9;
 const cellVar = (x: number, y: number) => ((x * 7 + y * 13) % 3 + 3) % 3;
 const pool: Drawable[] = [];
 const list: Drawable[] = [];

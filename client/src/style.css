@@ -32,8 +32,8 @@ html, body {
 }
 #coins { color: var(--gold); align-self: center; }
 #place { align-self: center; }
-#avatar { width: 48px; height: 46px; border: 2px solid #c27a2c; border-radius: 8px; overflow: hidden; background: #f0a33a; flex: 0 0 auto; }
-#avatar canvas { width: 44px; height: 42px; image-rendering: pixelated; display: block; }
+#avatar { width: 44px; height: 56px; border-radius: 6px; overflow: hidden; flex: 0 0 auto; box-shadow: 0 2px 0 rgba(0,0,0,.35); }
+#avatar canvas { width: 44px; height: 56px; image-rendering: pixelated; display: block; }
 #net { margin-left: auto; font-size: 12px; color: var(--muted); font-weight: 600; }
 #net.on { color: var(--accent); }
 
