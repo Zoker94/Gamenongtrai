@@ -1,7 +1,7 @@
 import './style.css';
 import { buildFarm, isTillable } from '../../shared/maps/farm.ts';
 import { CROPS, RIPE, key, type Plot } from '../../shared/rules.ts';
-import { drawAnchored, drawAt, loadAtlas, loadBackground } from './atlas.ts';
+import { drawAnchored, drawAt, loadAtlas } from './atlas.ts';
 import { Input } from './input.ts';
 import { Store } from './net.ts';
 import { Player } from './player.ts';
@@ -11,9 +11,9 @@ import { TILE, World } from './world.ts';
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true })!;
 
+const atlas = await loadAtlas();
 const map = buildFarm();
-const [atlas, bg] = await Promise.all([loadAtlas(), map.background ? loadBackground(map.background) : null]);
-const world = new World(map, atlas, bg);
+const world = new World(map, atlas);
 const store = new Store((x, y) => isTillable(map, x, y), map.starter);
 const ui = new UI(atlas);
 const input = new Input(canvas, document.getElementById('stick')!, document.getElementById('knob')!, document.getElementById('act')!);
@@ -44,12 +44,12 @@ function useTile(tx: number, ty: number) {
   const p: Plot | undefined = store.st.plots[key(tx, ty)];
   if (p && p.c && p.s >= RIPE) {
     const c = p.c;
-    if (store.act({ t: 'harvest', x: tx, y: ty })) { ui.toast(`+1 ${CROPS[c].name}`, 900); }
+    if (store.act({ t: 'harvest', x: tx, y: ty })) { ui.toast(`+1 ${CROPS[c].name}`, 900); player.playAction('pl_harvest'); }
     return;
   }
   const slot = ui.current;
-  if (slot.id === 'hoe') { if (store.act({ t: 'till', x: tx, y: ty })) player.playAction('dig'); }
-  else if (slot.id === 'can') { if (store.act({ t: 'water', x: tx, y: ty })) player.playAction('water'); }
+  if (slot.id === 'hoe') { if (store.act({ t: 'till', x: tx, y: ty })) player.playAction('pl_hoe'); }
+  else if (slot.id === 'can') { if (store.act({ t: 'water', x: tx, y: ty })) player.playAction('pl_water'); }
   else if (slot.id.startsWith('seed:')) store.act({ t: 'plant', x: tx, y: ty, crop: slot.id.slice(5) });
   else if (p && p.c) ui.toast(`${CROPS[p.c].name}: chưa chín`, 900);
   else ui.toast('Chọn cuốc để xới đất, hạt giống để gieo', 1400);
@@ -190,8 +190,6 @@ function update(dt: number) {
 
 // ----------------------------------------------------------------- render
 interface Drawable { y: number; name: string; x: number; flip: boolean }
-const PLAYER_SCALE = 0.9;
-const cellVar = (x: number, y: number) => ((x * 7 + y * 13) % 3 + 3) % 3;
 const pool: Drawable[] = [];
 const list: Drawable[] = [];
 const byY = (a: Drawable, b: Drawable) => a.y - b.y;
@@ -217,19 +215,12 @@ function render(time: number) {
   const x1 = Math.ceil((camX + vw) / TILE) + 1, y1 = Math.ceil((camY + vh) / TILE) + 1;
   list.length = 0;
   const plots = store.st.plots;
-  if (map.background) {
-    // every bed cell: barren until it is hoed (tilled/wet cells are drawn below)
-    for (let ty = Math.max(0, y0); ty <= Math.min(map.h - 1, y1); ty++)
-      for (let tx = Math.max(0, x0); tx <= Math.min(map.w - 1, x1); tx++)
-        if (isTillable(map, tx, ty) && !plots[key(tx, ty)]) drawAt(ctx, atlas, 'bed_dry' + cellVar(tx, ty), tx * TILE, ty * TILE);
-  }
   for (const k in plots) {
     const i = k.indexOf(',');
     const tx = +k.slice(0, i), ty = +k.slice(i + 1);
     if (tx < x0 || tx > x1 || ty < y0 || ty > y1) continue;
     const p = plots[k];
-    if (!map.background) drawAt(ctx, atlas, p.w ? 'tile_soil_wet' : 'tile_soil', tx * TILE, ty * TILE);
-    else drawAt(ctx, atlas, (p.w ? 'bed_wet' : 'bed_tilled') + cellVar(tx, ty), tx * TILE, ty * TILE);
+    drawAt(ctx, atlas, p.w ? 'tile_soil_wet' : 'tile_soil', tx * TILE, ty * TILE);
     if (!p.c) continue;
     if (p.s === 0) drawAt(ctx, atlas, 'seeds', tx * TILE, ty * TILE);
     else push(p.s >= RIPE ? 'crop_' + p.c : p.s === 1 ? 'crop_young' : 'crop_sprout', tx * TILE + 16, ty * TILE + TILE - 1, false);
@@ -261,14 +252,7 @@ function render(time: number) {
       ctx.fillRect(d.x - 7, py - 2, 14, 3);
       ctx.fillRect(d.x - 5, py + 1, 10, 1);
     }
-    if (d.name.startsWith('pl_') && map.background) {
-      // painted maps are drawn at a larger scale than the sprite sheet
-      ctx.save();
-      ctx.translate(d.x, d.y);
-      ctx.scale(PLAYER_SCALE, PLAYER_SCALE);
-      drawAnchored(ctx, atlas, d.name, 0, 0, d.flip);
-      ctx.restore();
-    } else drawAnchored(ctx, atlas, d.name, d.x, d.y, d.flip);
+    drawAnchored(ctx, atlas, d.name, d.x, d.y, d.flip);
   }
 }
 

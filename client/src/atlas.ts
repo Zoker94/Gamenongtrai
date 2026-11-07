@@ -66,20 +66,3 @@ export function iconCanvas(a: Atlas, name: string, size = 32): HTMLCanvasElement
   }
   return c;
 }
-
-/** Painted map background + its collision mask. */
-export async function loadBackground(name: string, base = '/assets/') {
-  const [meta, blob] = await Promise.all([
-    fetch(base + name + '.json').then((r) => r.json()),
-    fetch(base + name + '.webp').then((r) => r.blob()),
-  ]);
-  let img: CanvasImageSource;
-  if ('createImageBitmap' in window) img = await createImageBitmap(blob);
-  else {
-    const el = new Image();
-    el.src = URL.createObjectURL(blob);
-    await el.decode();
-    img = el;
-  }
-  return { img, mask: meta.mask as string[] };
-}

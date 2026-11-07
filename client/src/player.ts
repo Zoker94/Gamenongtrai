@@ -1,12 +1,15 @@
 import type { World } from './world.ts';
 
-// Animation frames (atlas names, built by tools/player_dress.py).
-// Facing key per dir: 0 down, 1 left, 2 right, 3 up. Side idle/walk cells face
-// LEFT in the atlas, side dig/water cells face RIGHT; the other side is mirrored.
-const FACE = ['d', 'r', 'r', 'u'] as const;
-const sideFlip = (kind: string, dir: number) =>
-  kind === 'idle' || kind === 'walk' ? dir === 2 : dir === 1;
-const ACTION_SECS = 0.4;
+// Animation frames (atlas names). Side frames face left; right = flipped.
+const WALK: Record<number, string[]> = {
+  0: ['pl_d1', 'pl_d0', 'pl_d2', 'pl_d0'],
+  3: ['pl_u1', 'pl_u0', 'pl_u2', 'pl_u3'],
+  1: ['pl_l0', 'pl_l1', 'pl_l0', 'pl_l1'],
+  2: ['pl_l0', 'pl_l1', 'pl_l0', 'pl_l1'],
+};
+const IDLE: Record<number, [string, boolean]> = {
+  0: ['pl_d0', false], 3: ['pl_u0', false], 1: ['pl_r_idle', true], 2: ['pl_r_idle', false],
+};
 export type Dir = 0 | 1 | 2 | 3;
 
 // Feet collider (world px), relative to the feet point.
@@ -26,29 +29,25 @@ export class Player {
     this.x = x; this.y = y;
   }
 
-  /** short tool animation: 'dig' or 'water' */
-  action: { kind: string; t: number } | null = null;
-  private idleT = 0;
+  /** short tool animation (hoe / water / harvest), faces right in the atlas */
+  action: { name: string; t: number } | null = null;
 
-  playAction(kind: string) { this.action = { kind, t: ACTION_SECS }; }
+  playAction(name: string) { this.action = { name, t: 0.35 }; }
 
   /** sprite to draw + whether to mirror it */
   get frame(): [string, boolean] {
-    const f = FACE[this.dir];
-    if (this.action) {
-      const i = Math.min(3, Math.floor((1 - this.action.t / ACTION_SECS) * 4));
-      return [`pl_${this.action.kind}_${f}${i}`, sideFlip(this.action.kind, this.dir)];
-    }
-    if (this.moving) return [`pl_walk_${f}${Math.floor(this.anim * 8) % 4}`, sideFlip('walk', this.dir)];
-    return [`pl_idle_${f}${Math.floor(this.idleT * 3) % 4}`, sideFlip('idle', this.dir)];
+    if (this.action) return [this.action.name, this.dir === 1];
+    if (!this.moving) return IDLE[this.dir];
+    const f = WALK[this.dir][Math.floor(this.anim * 7) % 4];
+    return [f, this.dir === 2];
   }
 
-  get bob(): number { return 0; }
+  /** 1px bob while walking makes the 2-frame cycle feel livelier */
+  get bob(): number { return this.moving && !this.action && Math.floor(this.anim * 7) % 2 ? 1 : 0; }
 
   /** ix, iy: input vector (-1..1). */
   update(dt: number, ix: number, iy: number, world: World) {
     if (this.action && (this.action.t -= dt) <= 0) this.action = null;
-    this.idleT += dt;
     if (ix || iy) this.target = null;
     else if (this.target) {
       const dx = this.target.x - this.x, dy = this.target.y - this.y;
