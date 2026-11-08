@@ -43,6 +43,9 @@ export class Player {
   turnaround = false;
   /** full 8-direction walk cycles (pl3_<dir>_0 = standing, _1.._8 = walk loop) */
   walkCycles = false;
+  /** char2 set: per direction idle (breathing) + walk frame counts, from the atlas */
+  idleN: number[] | null = null;
+  walkN: number[] = [];
   /** 0 down, 1 down-right, 2 right, 3 up-right, 4 up, 5 up-left, 6 left, 7 down-left */
   dir8 = 0;
 
@@ -50,6 +53,16 @@ export class Player {
 
   /** sprite to draw + whether to mirror it */
   get frame(): F {
+    if (this.idleN) {
+      const d = this.dir8;
+      if (!this.moving || this.vel < 0.05) {
+        const n = this.idleN[d];
+        const per = n <= 2 ? 0.8 : 0.22;            // gif timing (2-frame idle is slow)
+        return [`pl4_${d}_i${Math.floor(this.idleT / per) % n}`, false];
+      }
+      const stride = this.running ? 8 : 5.5;        // px per frame: feet match ground speed
+      return [`pl4_${d}_w${Math.floor(this.dist / stride) % this.walkN[d]}`, false];
+    }
     if (this.walkCycles) {
       if (!this.moving || this.vel < 0.05) return [`pl3_${this.dir8}_0`, false];
       const stride = this.running ? 9 : 6.5;      // px per frame: legs match ground speed
@@ -75,7 +88,14 @@ export class Player {
     if (this.action) {
       // little anticipation squash at the start of a tool swing
       const k = Math.max(0, this.action.t - 0.25) / 0.1;
-      return [0, 1 + 0.06 * k, 1 - 0.06 * k, 0];
+      const b = this.idleN ? 1.15 : 1;
+      return [0, b * (1 + 0.06 * k), b * (1 - 0.06 * k), 0];
+    }
+    if (this.idleN) {
+      // real breathing + walk frames: only scale up to the map, tiny lean
+      const side = this.dir8 >= 1 && this.dir8 <= 3 ? 1 : this.dir8 >= 5 ? -1 : 0;
+      const lean = this.moving ? side * (this.running ? 0.05 : 0.015) * this.vel : 0;
+      return [0, 1.15, 1.15, lean];
     }
     if (!this.moving || this.vel < 0.05) {
       // breathing

@@ -295,6 +295,50 @@ def cut_player_walk():
     return out
 
 
+def cut_char2():
+    """assets/source/char2/: idle_<d>.gif (breathing, 4 directions) and
+    walk_<d>.gif (8 directions). d: 0 down, 1 down-right, 2 right, 3 up-right,
+    4 up, 5 up-left, 6 left, 7 down-left. Frames -> pl4_<d>_i<n> / pl4_<d>_w<n>.
+    Diagonal directions without an idle use their most 'standing' walk frame."""
+    from PIL import ImageSequence
+    base = os.path.join(ROOT, 'assets/source/char2')
+    if not os.path.isdir(base):
+        return {}
+
+    def load(path):
+        fr = []
+        for f in ImageSequence.Iterator(Image.open(path)):
+            f = f.convert('RGBA')
+            fr.append(f.resize((f.width * 2, f.height * 2), Image.NEAREST))
+        return fr
+
+    def feet_x(f):
+        a = f.getchannel('A').load(); w, h = f.size
+        bot = max(y for y in range(h) for x in range(w) if a[x, y])
+        xs = [x for y in range(bot - 8, bot + 1) for x in range(w) if a[x, y]]
+        return (min(xs) + max(xs)) / 2
+
+    def place(f, cx):
+        bb = f.getchannel('A').getbbox()
+        hw = max(cx - bb[0], bb[2] - cx) + 1
+        im = Image.new('RGBA', (hw * 2, bb[3] - bb[1]), (0, 0, 0, 0))
+        im.paste(f.crop(bb), (hw - (cx - bb[0]), 0))
+        return im
+
+    out = {}
+    for d in range(8):
+        walk = load(os.path.join(base, f'walk_{d}.gif'))
+        ip = os.path.join(base, f'idle_{d}.gif')
+        idle = load(ip) if os.path.exists(ip) else [min(walk, key=lambda f: f.getchannel('A').getbbox()[2] - f.getchannel('A').getbbox()[0])]
+        frames = idle + walk
+        cx = round(sum(feet_x(f) for f in frames) / len(frames))
+        for i, f in enumerate(idle):
+            out[f'pl4_{d}_i{i}'] = place(f, cx)
+        for i, f in enumerate(walk):
+            out[f'pl4_{d}_w{i}'] = place(f, cx)
+    return out
+
+
 def cut_player():
     out = {}
     for name, (c, r) in P_FRAMES.items():
@@ -981,8 +1025,22 @@ def main():
         else:
             images[name] = trim(downscale(cut_object(sh, (x0, y0, x1, y1)), mult=mult))
     images.update(cut_player()); native.update(k for k in images if k.startswith('pl_'))
-    images.update(cut_player_gif()); native.update(k for k in images if k.startswith('pl2_'))
-    images.update(cut_player_walk()); native.update(k for k in images if k.startswith('pl3_'))
+    c2 = cut_char2()
+    if c2:
+        # active protagonist: only its frames go into the atlas
+        images.update(c2); native.update(c2)
+        from PIL import ImageSequence
+        f0 = next(ImageSequence.Iterator(Image.open(os.path.join(ROOT, 'assets/source/char2/idle_0.gif')))).convert('RGBA')
+        bb = f0.getchannel('A').getbbox()
+        head = f0.crop((bb[0], bb[1], bb[2], bb[1] + (bb[3] - bb[1]) * 45 // 100))
+        port = Image.new('RGBA', (44 * RES, 42 * RES), (240, 190, 110, 255))
+        k = min((44 * RES - 10) / head.width, (42 * RES - 6) / head.height)
+        hs = head.resize((int(head.width * k), int(head.height * k)), Image.NEAREST)
+        port.alpha_composite(hs, ((port.width - hs.width) // 2, port.height - hs.height))
+        images['portrait'] = port; native.add('portrait')
+    else:
+        images.update(cut_player_gif()); native.update(k for k in images if k.startswith('pl2_'))
+        images.update(cut_player_walk()); native.update(k for k in images if k.startswith('pl3_'))
     for name, box in PLANTS.items():
         im = cut_plant(box)
         k = min(26 * RES / im.width, 28 * RES / im.height)

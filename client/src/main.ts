@@ -43,6 +43,11 @@ const player = new Player(map.spawn.x * TILE + TILE / 2, map.spawn.y * TILE + TI
 const fx = new Effects(world);
 player.turnaround = !!atlas.frames['pl2_0'];
 player.walkCycles = !!atlas.frames['pl3_0_8'];
+if (atlas.frames['pl4_0_w0']) {
+  const count = (d: number, k: string) => { let n = 0; while (atlas.frames[`pl4_${d}_${k}${n}`]) n++; return n; };
+  player.idleN = [0, 1, 2, 3, 4, 5, 6, 7].map((d) => count(d, 'i'));
+  player.walkN = [0, 1, 2, 3, 4, 5, 6, 7].map((d) => count(d, 'w'));
+}
 
 document.getElementById('loading')!.remove();
 
