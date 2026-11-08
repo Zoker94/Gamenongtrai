@@ -3,7 +3,7 @@
 // below to reshape the map.
 //
 // Layout (24x17 tiles, built from the user's sheet-4 ground tiles):
-//   north: farmhouse + yard, barn, silo, windmill, orchard
+//   north-west: farmhouse + yard, orchard   north-east: fenced livestock pen (cows, pigs)
 //   middle: dirt road west-east (exit -> town), crossroads
 //   south-west: crop field (dirt area with ploughed beds), greenhouse
 //   south-east: fish pond scene; path south (exit -> park)
@@ -99,7 +99,7 @@ export function buildFarm(): GameMap {
   const BEDS: Rect = { x0: 3, y0: 11, x1: 8, y1: 13 };            // tillable interior
   const ROAD_Y = 8;
   const PATHS_V = [                                               // [x, y0, y1]
-    [5, 6, ROAD_Y], [12, 6, H - 1],
+    [5, 6, ROAD_Y], [12, 8, H - 1], [16, 7, ROAD_Y],   // house, south lane, pen gate
   ];
   const r = rng(20241107);
   const pick = <T,>(a: T[]) => a[Math.floor(r() * a.length)];
@@ -178,13 +178,15 @@ export function buildFarm(): GameMap {
   o('bench', 9.8, 6.6);
   reserve(2, 2, 11, 7);
 
-  // --- barn, silo, windmill (north-east)
-  o('barn_red', 12, 5);
-  o('hay_bale', 14.4, 6.3);
-  o('silo', 15.6, 5);
-  o('windmill', 19, 5.6);
-  o('flowers_lav', 17.4, 6.6);
-  reserve(11, 2, 21, 7);
+  // --- livestock pen (north-east): open grass inside a fence, gate onto the road
+  const PEN: Rect = { x0: 12, y0: 2, x1: 21, y1: 7 };
+  const gate = (x: number, y: number) => y === PEN.y1 && (x === 16);
+  for (let x = PEN.x0; x <= PEN.x1; x++) {
+    o('fence_h', x, PEN.y0);
+    if (!gate(x, PEN.y1)) o('fence_h', x, PEN.y1);
+  }
+  for (let y = PEN.y0 + 1; y < PEN.y1; y++) { o('fence_v', PEN.x0, y); o('fence_v', PEN.x1, y); }
+  reserve(11, 1, 22, 7);
 
   // --- crop field (south-west)
   o('sign', 5, 9.3);              // field sign (covers the crossing stub)
