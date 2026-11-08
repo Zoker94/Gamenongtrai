@@ -39,11 +39,16 @@ export class Player {
   action: { name: string; t: number } | null = null;
   running = false;
   private dist = 0;
+  /** 8-direction turnaround sprite set (pl2_0..7) instead of sheet 5 frames */
+  turnaround = false;
+  /** 0 down, 1 down-right, 2 right, 3 up-right, 4 up, 5 up-left, 6 left, 7 down-left */
+  dir8 = 0;
 
   playAction(name: string) { this.action = { name, t: 0.35 }; }
 
   /** sprite to draw + whether to mirror it */
   get frame(): F {
+    if (this.turnaround) return [`pl2_${this.dir8}`, false];
     if (this.action) return [this.action.name, this.dir === 1];
     if (!this.moving) return IDLE[this.dir];
     if (this.running && (this.dir === 1 || this.dir === 2))
@@ -122,6 +127,9 @@ export class Player {
     else this.dir = iy < 0 ? 3 : iy > 0 ? 0 : this.dir;
 
     this.vx = ix; this.vy = iy;
+    // 8-way facing from the movement vector (45 deg sectors)
+    const ang = Math.atan2(iy, ix);                  // 0 = right, +pi/2 = down
+    this.dir8 = ((Math.round((Math.PI / 2 - ang) / (Math.PI / 4)) % 8) + 8) % 8;
     const step = this.speed * (this.running ? 1.65 : 1) * Math.max(0.35, this.vel) * dt;
     const mx = ix * step, my = iy * step;
     const ox = this.x, oy = this.y;
@@ -150,6 +158,7 @@ export class Player {
 
   faceToward(px: number, py: number) {
     const dx = px - this.x, dy = py - (this.y - 6);
+    this.dir8 = ((Math.round((Math.PI / 2 - Math.atan2(dy, dx)) / (Math.PI / 4)) % 8) + 8) % 8;
     if (Math.abs(dx) > Math.abs(dy)) this.dir = dx < 0 ? 1 : 2;
     else this.dir = dy < 0 ? 3 : 0;
   }

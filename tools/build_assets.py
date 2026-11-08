@@ -235,6 +235,27 @@ def feet_align(im, half_w=None):
     return out
 
 
+def cut_player_gif():
+    """8-direction turnaround GIF (56x56 frames): 0 down, 1 down-right, 2 right,
+    3 up-right, 4 up, 5 up-left, 6 left, 7 down-left. Pixel art is scaled up
+    with nearest-neighbour so it stays crisp."""
+    from PIL import ImageSequence
+    path = os.path.join(ROOT, 'assets/source/char_monk.gif')
+    if not os.path.exists(path):
+        return {}
+    out = {}
+    frames = [f.convert('RGBA') for f in ImageSequence.Iterator(Image.open(path))]
+    for i, f in enumerate(frames):
+        big = f.resize((f.width * 2, f.height * 2), Image.NEAREST)
+        out[f'pl2_{i}'] = feet_align(big)
+    # HUD portrait: head of the front frame
+    head = frames[0].crop((14, 0, 42, 26)).resize((28 * 4, 26 * 4), Image.NEAREST)
+    port = Image.new('RGBA', (44 * RES, 42 * RES), (240, 190, 110, 255))
+    port.alpha_composite(head.resize((44 * RES - 8, int((44 * RES - 8) * 26 / 28)), Image.NEAREST), (4, 4))
+    out['portrait'] = port
+    return out
+
+
 def cut_player():
     out = {}
     for name, (c, r) in P_FRAMES.items():
@@ -921,6 +942,7 @@ def main():
         else:
             images[name] = trim(downscale(cut_object(sh, (x0, y0, x1, y1)), mult=mult))
     images.update(cut_player()); native.update(k for k in images if k.startswith('pl_'))
+    images.update(cut_player_gif()); native.update(k for k in images if k.startswith('pl2_'))
     for name, box in PLANTS.items():
         im = cut_plant(box)
         k = min(26 * RES / im.width, 28 * RES / im.height)
@@ -977,7 +999,8 @@ def main():
     images['tallgrass_top'] = tall_grass_top(601)
     images['seeds'] = make_seeds(None)
     # HUD portrait (opaque, keeps its orange frame)
-    images['portrait'] = sheets['s5'].crop((2278, 138, 2552, 398)).convert('RGBA').resize((44 * R, 42 * R), Image.LANCZOS)
+    if 'portrait' not in images:
+        images['portrait'] = sheets['s5'].crop((2278, 138, 2552, 398)).convert('RGBA').resize((44 * R, 42 * R), Image.LANCZOS)
     native.add('portrait')
     images.update(tool_icons())
     # procedural pixel art is drawn at game resolution: blow it up crisply
