@@ -41,6 +41,8 @@ export class Player {
   private dist = 0;
   /** 8-direction turnaround sprite set (pl2_0..7) instead of sheet 5 frames */
   turnaround = false;
+  /** full 8-direction walk cycles (pl3_<dir>_0 = standing, _1.._8 = walk loop) */
+  walkCycles = false;
   /** 0 down, 1 down-right, 2 right, 3 up-right, 4 up, 5 up-left, 6 left, 7 down-left */
   dir8 = 0;
 
@@ -48,6 +50,11 @@ export class Player {
 
   /** sprite to draw + whether to mirror it */
   get frame(): F {
+    if (this.walkCycles) {
+      if (!this.moving || this.vel < 0.05) return [`pl3_${this.dir8}_0`, false];
+      const stride = this.running ? 9 : 6.5;      // px per frame: legs match ground speed
+      return [`pl3_${this.dir8}_${1 + (Math.floor(this.dist / stride) % 8)}`, false];
+    }
     if (this.turnaround) return [`pl2_${this.dir8}`, false];
     if (this.action) return [this.action.name, this.dir === 1];
     if (!this.moving) return IDLE[this.dir];
@@ -74,6 +81,10 @@ export class Player {
       // breathing
       const b = Math.sin(this.idleT * 2.4);
       return [0, 1 + b * 0.012, 1 - b * 0.018, 0];
+    }
+    if (this.walkCycles) {
+      const side = this.dir8 >= 1 && this.dir8 <= 3 ? 1 : this.dir8 >= 5 ? -1 : 0;
+      return [0, 1, 1, side * (this.running ? 0.06 : 0.02) * this.vel];
     }
     const stride = this.running ? STRIDE_RUN : STRIDE_WALK;
     const ph = (this.dist / stride) * Math.PI;           // one bounce per footstep

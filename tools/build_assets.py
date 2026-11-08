@@ -256,6 +256,45 @@ def cut_player_gif():
     return out
 
 
+def cut_player_walk():
+    """Walk cycles: assets/source/char_walk_<dir>.gif (dir 0 down, 1 down-right,
+    2 right, 3 up-right, 4 up, 5 up-left, 6 left, 7 down-left), 9 frames each:
+    frame 0 = standing, 1..8 = walk loop."""
+    from PIL import ImageSequence
+    out = {}
+    for d in range(8):
+        path = os.path.join(ROOT, f'assets/source/char_walk_{d}.gif')
+        if not os.path.exists(path):
+            return {}
+        frames = []
+        for f in ImageSequence.Iterator(Image.open(path)):
+            f = f.convert('RGBA')
+            px = f.load()
+            for y in range(f.height):
+                for x in range(f.width):
+                    r_, g_, b_, a_ = px[x, y]
+                    if a_ and g_ > 140 and g_ > r_ + 45 and g_ > b_ + 25:   # stray bright-green pixels
+                        px[x, y] = (0, 0, 0, 0)
+            frames.append(f.resize((f.width * 2, f.height * 2), Image.NEAREST))
+        # one shared horizontal anchor per direction so the loop never slides
+        xs = []
+        for f in frames:
+            a = f.getchannel('A').load()
+            w, h = f.size
+            bot = max(y for y in range(h) for x in range(w) if a[x, y])
+            fx = [x for y in range(bot - 6, bot + 1) for x in range(w) if a[x, y]]
+            xs.append((min(fx) + max(fx)) / 2)
+        cx = round(sum(xs) / len(xs))
+        for i, f in enumerate(frames):
+            bb = f.getchannel('A').getbbox()
+            hw = max(cx - bb[0], bb[2] - cx) + 1
+            im = Image.new('RGBA', (hw * 2, bb[3] - bb[1]), (0, 0, 0, 0))
+            im.paste(f.crop((bb[0], bb[1], bb[2], bb[3])), (hw - (cx - bb[0]), 0))
+            # keep the feet on one baseline: frames are bottom-aligned by the draw anchor
+            out[f'pl3_{d}_{i}'] = im
+    return out
+
+
 def cut_player():
     out = {}
     for name, (c, r) in P_FRAMES.items():
@@ -943,6 +982,7 @@ def main():
             images[name] = trim(downscale(cut_object(sh, (x0, y0, x1, y1)), mult=mult))
     images.update(cut_player()); native.update(k for k in images if k.startswith('pl_'))
     images.update(cut_player_gif()); native.update(k for k in images if k.startswith('pl2_'))
+    images.update(cut_player_walk()); native.update(k for k in images if k.startswith('pl3_'))
     for name, box in PLANTS.items():
         im = cut_plant(box)
         k = min(26 * RES / im.width, 28 * RES / im.height)

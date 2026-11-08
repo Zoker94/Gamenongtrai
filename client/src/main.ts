@@ -42,6 +42,7 @@ const input = new Input(canvas, document.getElementById('stick')!, document.getE
 const player = new Player(map.spawn.x * TILE + TILE / 2, map.spawn.y * TILE + TILE - 4);
 const fx = new Effects(world);
 player.turnaround = !!atlas.frames['pl2_0'];
+player.walkCycles = !!atlas.frames['pl3_0_8'];
 
 document.getElementById('loading')!.remove();
 
