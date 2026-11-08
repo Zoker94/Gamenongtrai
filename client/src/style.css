@@ -250,3 +250,18 @@ body.touch #stick { background: rgba(255, 240, 200, .18); border: 3px solid rgba
 #weather[data-k="cloud"]::before { background: #c9d2dc; box-shadow: 0 0 0 2px #eef2f6; }
 #weather[data-k="rain"]::before, #weather[data-k="storm"]::before { background: #4f8fd6; box-shadow: 0 0 0 2px #cfe3fa; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); }
 #weather[data-k="fog"]::before { background: #dfe6ea; box-shadow: 0 0 0 2px #fff; }
+
+/* storehouse grid */
+.box h3 { margin: 12px 0 6px; font-size: 14px; color: var(--wood-m, #7a4a26); }
+.box .sub { margin: 4px 0 0; color: #8a6a44; font-weight: 700; }
+.box .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 8px; }
+.box .grid .empty { grid-column: 1 / -1; padding: 6px 0; }
+.box .cell {
+  position: relative; display: grid; justify-items: center; gap: 2px; padding: 8px 4px 6px;
+  background: rgba(255, 255, 255, .6); border: 2px solid rgba(122, 74, 38, .35); border-radius: 12px;
+}
+.box .cell .ic { width: 48px; height: 48px; }
+.box .cell .ic canvas { width: 40px; height: 40px; }
+.box .cell b { position: absolute; top: 4px; right: 6px; font-size: 13px; color: #fff;
+  background: var(--wood-m, #7a4a26); border-radius: 9px; padding: 0 6px; }
+.box .cell small { font-size: 11px; color: #6b4a2a; font-weight: 700; text-align: center; }

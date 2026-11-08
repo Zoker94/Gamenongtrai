@@ -57,7 +57,7 @@ export class Player {
       const d = this.dir8;
       if (!this.moving || this.vel < 0.05) {
         const n = this.idleN[d];
-        const per = n <= 2 ? 0.8 : 0.22;            // gif timing (2-frame idle is slow)
+        const per = n <= 2 ? 0.8 : n === 3 ? 0.4 : 0.22;   // gif timing per idle set
         return [`pl4_${d}_i${Math.floor(this.idleT / per) % n}`, false];
       }
       const stride = this.running ? 8 : 5.5;        // px per frame: feet match ground speed

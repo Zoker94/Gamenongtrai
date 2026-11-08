@@ -102,6 +102,7 @@ function useTarget(t: Target) {
     const spot = spots.get(key(t.x, t.y));
     if (spot === 'ship') return ui.openShip(store.st);
     if (spot === 'shop') return ui.openShop(store.st);
+    if (spot === 'store') return ui.openStore(store.st);
     return ui.toast('Hãy đứng cạnh ô đất trong ruộng', 1200);
   }
   const tx = t.x, ty = t.y;

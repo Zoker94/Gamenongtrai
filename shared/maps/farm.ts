@@ -280,6 +280,9 @@ export function buildFarm(): GameMap {
     spots: [
       { id: 'ship', x: 7, y: 7 },
       { id: 'shop', x: 9, y: 7 },
+      // the farmhouse is the storehouse: its door and front wall
+      { id: 'store', x: 4, y: 5 }, { id: 'store', x: 5, y: 5 }, { id: 'store', x: 6, y: 5 },
+      { id: 'store', x: 5, y: 6 },
     ],
   };
 }

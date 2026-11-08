@@ -134,10 +134,33 @@ export class UI {
     this.showPanel('Thùng bán hàng', rows);
   }
 
+  /** The farmhouse storehouse: everything the player owns. */
+  openStore(st: FarmState) {
+    this.panel.dataset.kind = 'store';
+    const icon = (c: string, seed: boolean) => seed
+      ? (this.atlas.frames[`cp_${c}_bag`] ? `cp_${c}_bag` : `pc_${c}`)
+      : (this.atlas.frames[`cp_${c}_item`] ? `cp_${c}_item` : `pc_${c}`);
+    const cell = (c: string, seed: boolean) => {
+      const n = st.inv[seed ? 'seed:' + c : c];
+      return `<div class="cell" title="${seed ? 'Hạt ' : ''}${CROPS[c].name}"><span class="ic" data-ic="${icon(c, seed)}"></span>
+        <b>${n}</b><small>${seed ? 'Hạt ' : ''}${CROPS[c].name}</small></div>`;
+    };
+    const crops = CROP_IDS.filter((c) => st.inv[c]);
+    const seeds = CROP_IDS.filter((c) => st.inv['seed:' + c]);
+    const total = crops.reduce((a, c) => a + st.inv[c], 0) + seeds.reduce((a, c) => a + st.inv['seed:' + c], 0);
+    const body = `<p class="sub">Tổng: ${total} món · <i class="coin"></i>${st.coins}</p>
+      <h3>Nông sản</h3>
+      <div class="grid">${crops.length ? crops.map((c) => cell(c, false)).join('') : '<p class="empty">Chưa có nông sản.</p>'}</div>
+      <h3>Hạt giống</h3>
+      <div class="grid">${seeds.length ? seeds.map((c) => cell(c, true)).join('') : '<p class="empty">Hết hạt giống.</p>'}</div>`;
+    this.showPanel('Kho nhà', body);
+  }
+
   /** Re-render the open panel after the state changed. */
   refresh(st: FarmState) {
     if (this.panel.dataset.kind === 'shop') this.openShop(st);
     else if (this.panel.dataset.kind === 'ship') this.openShip(st);
+    else if (this.panel.dataset.kind === 'store') this.openStore(st);
   }
 
   private showPanel(title: string, body: string) {
