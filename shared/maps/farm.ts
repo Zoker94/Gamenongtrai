@@ -185,7 +185,8 @@ export function buildFarm(): GameMap {
     o('fence_h', x, PEN.y0);
     if (!gate(x, PEN.y1)) o('fence_h', x, PEN.y1);
   }
-  for (let y = PEN.y0 + 1; y < PEN.y1; y++) { o('fence_v', PEN.x0, y); o('fence_v', PEN.x1, y); }
+  // side rails run all the way to the bottom fence: no gap at the corners
+  for (let y = PEN.y0 + 1; y <= PEN.y1; y++) { o('fence_v', PEN.x0, y); o('fence_v', PEN.x1, y); }
   reserve(11, 1, 22, 7);
 
   // --- crop field (south-west)
