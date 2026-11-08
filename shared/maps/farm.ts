@@ -187,7 +187,6 @@ export function buildFarm(): GameMap {
   }
   for (let y = PEN.y0 + 1; y < PEN.y1; y++) { o('fence_v', PEN.x0, y); o('fence_v', PEN.x1, y); }
   reserve(11, 1, 22, 7);
-  reserve(12, 0, 21, 0);   // no trunks standing on the fence line
 
   // --- crop field (south-west)
   o('sign', 5, 9.3);              // field sign (covers the crossing stub)
@@ -230,6 +229,9 @@ export function buildFarm(): GameMap {
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (border(x, y) <= 2) placeTree(pick(TREES), x, y);
   // trees standing above the top edge: their canopies frame the top of the map
   for (let x = 0; x < W; x += 2) o(pick(TREES), x + 0.5, -1, r() < 0.5);
+  // close the pen's back side: a dense double row of big trees behind its fence
+  for (let x = 11; x <= 22; x += 1.5) o(pick(TREES), x + (r() - 0.5) * 0.3, 0, r() < 0.5);
+  for (let x = 11.75; x <= 22; x += 1.5) o(pick(CLUMPS), x, -1.6, r() < 0.5);
   for (let y = 1; y < H; y += 2) { o(pick(TREES), -1, y, r() < 0.5); if (y < 9) o(pick(TREES), W, y, r() < 0.5); }
   for (let x = 1; x < 11; x += 2) o(pick(TREES), x, H, r() < 0.5);
   for (const [gx, gy] of [[10, 15], [11, 9], [22, 15], [2, 9], [10, 2], [8, 15]] as [number, number][])
