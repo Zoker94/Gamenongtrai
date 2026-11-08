@@ -1,3 +1,4 @@
+import { deltaToLogical, toLogical } from './orient.ts';
 // Keyboard + virtual joystick + tap/click. No per-frame allocations.
 
 export class Input {
@@ -34,10 +35,11 @@ export class Input {
 
     canvas.addEventListener('wheel', (e) => { this.slotDelta = e.deltaY > 0 ? 1 : -1; }, { passive: true });
     canvas.addEventListener('pointerdown', (e) => {
-      this.tap = { x: e.clientX, y: e.clientY };
+      const [x, y] = toLogical(e.clientX, e.clientY);
+      this.tap = { x, y };
     });
     canvas.addEventListener('pointermove', (e) => {
-      if (e.pointerType === 'mouse') this.hover = { x: e.clientX, y: e.clientY };
+      if (e.pointerType === 'mouse') { const [x, y] = toLogical(e.clientX, e.clientY); this.hover = { x, y }; }
     });
     canvas.addEventListener('pointerleave', () => { this.hover = null; });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -47,7 +49,7 @@ export class Input {
     const R = 44;
     const move = (e: PointerEvent) => {
       if (e.pointerId !== sid) return;
-      let dx = e.clientX - cx, dy = e.clientY - cy;
+      let [dx, dy] = deltaToLogical(e.clientX - cx, e.clientY - cy);
       const d = Math.hypot(dx, dy);
       if (d > R) { dx = dx / d * R; dy = dy / d * R; }
       knob.style.transform = `translate(${dx}px,${dy}px)`;

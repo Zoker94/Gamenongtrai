@@ -5,6 +5,7 @@ import { drawAnchored, drawAt, loadAtlas } from './atlas.ts';
 import { Effects, drawScreenLight, swayFor } from './effects.ts';
 import { loadGround, saveGround } from './groundcache.ts';
 import { Input } from './input.ts';
+import { updateOrientation } from './orient.ts';
 import { Store } from './net.ts';
 import { Player } from './player.ts';
 import { UI } from './ui.ts';
@@ -129,10 +130,11 @@ const zoutBtn = document.getElementById('zout') as HTMLButtonElement;
 
 function resize() {
   dpr = Math.min(window.devicePixelRatio || 1, 3);
-  const w = Math.round(innerWidth * dpr), h = Math.round(innerHeight * dpr);
+  const [lw, lh] = updateOrientation();
+  const w = Math.round(lw * dpr), h = Math.round(lh * dpr);
   canvas.width = w; canvas.height = h;
-  canvas.style.width = innerWidth + 'px';
-  canvas.style.height = innerHeight + 'px';
+  canvas.style.width = lw + 'px';
+  canvas.style.height = lh + 'px';
   // base: show ~11 tiles on the short side; never zoom out past the map edges
   // close-up camera: about 5.5 tiles on the short side of the screen
   const base = Math.max(1, Math.min(w, h) / (5.5 * TILE));
@@ -168,7 +170,7 @@ canvas.addEventListener('wheel', (e) => {
 }, { passive: false });
 
 // ---- landscape: go fullscreen and lock orientation where the browser allows it
-// (Android Chrome). Other phones get the "rotate your phone" screen from CSS.
+// (Android Chrome). Elsewhere the game is rotated with CSS (orient.ts).
 async function goLandscape() {
   try {
     if (!document.fullscreenElement) await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
@@ -184,6 +186,7 @@ document.getElementById('fs')!.addEventListener('click', () => {
 if (!document.documentElement.requestFullscreen) document.getElementById('fs')!.hidden = true;
 
 addEventListener('resize', resize);
+addEventListener('orientationchange', () => setTimeout(resize, 150));
 resize();
 
 function updateCamera(dt: number, snap = false) {

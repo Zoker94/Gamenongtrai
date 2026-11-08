@@ -129,22 +129,16 @@ body.touch #act {
 #tools button:disabled { opacity: .4; }
 #fs { font-size: 18px !important; }
 
-/* phones held upright: ask to rotate (the game is landscape-only) */
-#rotate { display: none; }
-@media (orientation: portrait) and (pointer: coarse) {
-  #rotate {
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
-    position: fixed; inset: 0; z-index: 50; background: var(--bg); color: var(--text); text-align: center; padding: 24px;
-    font-size: 18px; font-weight: 700;
-  }
-  #rotate .phone {
-    width: 56px; height: 92px; border: 4px solid var(--gold); border-radius: 12px; animation: turn 1.8s ease-in-out infinite;
-  }
+/* phones held upright: the whole game is rotated to landscape (see orient.ts) */
+#root { position: fixed; inset: 0; }
+body.rot #root {
+  inset: auto; top: 0; left: 0; width: 100vh; height: 100vw;
+  width: 100dvh; height: 100dvw;
+  transform-origin: top left; transform: rotate(90deg) translateY(-100%);
 }
-@keyframes turn { 0%, 20% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
 
 /* landscape phones are short: compact HUD */
-@media (orientation: landscape) and (max-height: 500px) {
+@media (orientation: landscape) and (max-height: 500px), (orientation: portrait) and (max-width: 500px) and (pointer: coarse) {
   body.touch #stick { bottom: 16px; width: 104px; height: 104px; }
   body.touch #act { bottom: 24px; right: max(16px, env(safe-area-inset-right)); width: 64px; height: 64px; }
   #tools button { width: 36px; height: 36px; font-size: 20px; }
@@ -239,7 +233,7 @@ body.touch #stick { background: rgba(255, 240, 200, .18); border: 3px solid rgba
 #loading .bar { background: var(--paper-d); border: 3px solid var(--wood-d); height: 14px; border-radius: 8px; }
 #loading .bar i { background: linear-gradient(#ffd54a, #e89b1c); }
 
-@media (orientation: landscape) and (max-height: 500px) {
+@media (orientation: landscape) and (max-height: 500px), (orientation: portrait) and (max-width: 500px) and (pointer: coarse) {
   .slot { width: 46px; height: 46px; flex-basis: 46px; }
   .slot canvas, .slot.seed canvas { width: 34px; height: 34px; }
   #avatar { width: 46px; height: 46px; }
