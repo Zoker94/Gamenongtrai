@@ -179,7 +179,7 @@ export function buildFarm(): GameMap {
   reserve(2, 2, 11, 7);
 
   // --- livestock pen (north-east): open grass inside a fence, gate onto the road
-  const PEN: Rect = { x0: 12, y0: 2, x1: 21, y1: 7 };
+  const PEN: Rect = { x0: 12, y0: 1, x1: 21, y1: 7 };   // top fence right under the tree line
   const gate = (x: number, y: number) => y === PEN.y1 && (x === 16);
   for (let x = PEN.x0; x <= PEN.x1; x++) {
     o('fence_h', x, PEN.y0);
@@ -187,6 +187,7 @@ export function buildFarm(): GameMap {
   }
   for (let y = PEN.y0 + 1; y < PEN.y1; y++) { o('fence_v', PEN.x0, y); o('fence_v', PEN.x1, y); }
   reserve(11, 1, 22, 7);
+  reserve(12, 0, 21, 0);   // no trunks standing on the fence line
 
   // --- crop field (south-west)
   o('sign', 5, 9.3);              // field sign (covers the crossing stub)
@@ -221,10 +222,18 @@ export function buildFarm(): GameMap {
     o(name, x + (r() - 0.5) * 0.4, y, r() < 0.5);
     reserve(x - 1, y - 1, x + 1, y);
   };
+  // dense forest: big clumps on the outer ring, then single big trees fill a
+  // 3-tile deep belt, plus a few groves inside the farm
   for (let y = 1; y < H; y += 2)
     for (let x = 0; x < W; x += 2)
-      if (border(x, y) <= 1 && r() < 0.8) placeTree(pick(CLUMPS), x + Math.floor(r() * 2), y + Math.floor(r() * 2));
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (border(x, y) <= 1) placeTree(pick(TREES), x, y);
+      if (border(x, y) <= 2 && r() < 0.9) placeTree(pick(CLUMPS), x + Math.floor(r() * 2), y + Math.floor(r() * 2));
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (border(x, y) <= 2) placeTree(pick(TREES), x, y);
+  // trees standing above the top edge: their canopies frame the top of the map
+  for (let x = 0; x < W; x += 2) o(pick(TREES), x + 0.5, -1, r() < 0.5);
+  for (let y = 1; y < H; y += 2) { o(pick(TREES), -1, y, r() < 0.5); if (y < 9) o(pick(TREES), W, y, r() < 0.5); }
+  for (let x = 1; x < 11; x += 2) o(pick(TREES), x, H, r() < 0.5);
+  for (const [gx, gy] of [[10, 15], [11, 9], [22, 15], [2, 9], [10, 2], [8, 15]] as [number, number][])
+    placeTree(pick(TREES), gx, gy);
 
   // --- small greenery: dense in the forest strip, sparse inside
   const SMALLS = ['flower_bush_y', 'flower_bush_r', 'flower_bush_t', 'bush_a'];
