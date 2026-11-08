@@ -52,6 +52,8 @@ export class Effects {
   private chimney: { x: number; y: number } | null = null;
   private vignette: HTMLCanvasElement | null = null;
   private nextRipple = 0;
+  /** 0..1, set by the weather: more ripples on the pond in the rain */
+  rainK = 0;
   private nextFish = 3;
   private nextLeaf = 0;
   private trees: { x: number; y: number; h: number }[] = [];
@@ -147,9 +149,9 @@ export class Effects {
 
     // ripples from insects / drops on the surface
     if ((this.nextRipple -= dt) <= 0) {
-      this.nextRipple = 0.35 + rnd() * 0.5;
+      this.nextRipple = (0.35 + rnd() * 0.5) / (1 + this.rainK * 12);
       const p = this.randomWater();
-      if (p && this.ripples.length < 14) this.ripples.push({ x: p[0], y: p[1], t: 0, life: 1.6, big: false });
+      if (p && this.ripples.length < 14 + this.rainK * 40) this.ripples.push({ x: p[0], y: p[1], t: 0, life: 1.6, big: false });
     }
     // a fish jumps now and then: splash + big ring
     if ((this.nextFish -= dt) <= 0) {
@@ -292,7 +294,7 @@ export class Effects {
 
 /** Warm sunlight + soft vignette over the whole screen (screen space). */
 let vig: HTMLCanvasElement | null = null;
-export function drawScreenLight(ctx: Ctx, w: number, h: number, t: number) {
+export function drawScreenLight(ctx: Ctx, w: number, h: number, t: number, sunK = 1) {
   if (!vig || vig.width !== w || vig.height !== h) {
     vig = document.createElement('canvas');
     vig.width = w; vig.height = h;
@@ -307,11 +309,12 @@ export function drawScreenLight(ctx: Ctx, w: number, h: number, t: number) {
     g.fillStyle = sun; g.fillRect(0, 0, w, h);
   }
   ctx.drawImage(vig, 0, 0);
+  if (sunK < 0.02) return;
   // slow sun rays from the top-left corner
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   for (let i = 0; i < 3; i++) {
-    const a = 0.035 + 0.02 * Math.sin(t * 0.4 + i * 2);
+    const a = (0.035 + 0.02 * Math.sin(t * 0.4 + i * 2)) * sunK;
     ctx.fillStyle = `rgba(255,240,190,${a})`;
     ctx.beginPath();
     const x0 = w * (0.05 + i * 0.18);

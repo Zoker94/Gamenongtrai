@@ -5,6 +5,7 @@ import { drawAnchored, drawAt, loadAtlas } from './atlas.ts';
 import { Effects, drawScreenLight, swayFor } from './effects.ts';
 import { loadGround, saveGround } from './groundcache.ts';
 import { Input } from './input.ts';
+import { WEATHER_NAME, Weather } from './weather.ts';
 import { updateOrientation } from './orient.ts';
 import { Store } from './net.ts';
 import { Player } from './player.ts';
@@ -42,6 +43,9 @@ const ui = new UI(atlas);
 const input = new Input(canvas, document.getElementById('stick')!, document.getElementById('knob')!, document.getElementById('act')!);
 const player = new Player(map.spawn.x * TILE + TILE / 2, map.spawn.y * TILE + TILE - 4);
 const fx = new Effects(world);
+const weather = new Weather();
+const weatherEl = document.getElementById('weather') as HTMLElement;
+weather.onChange = (k) => { weatherEl.textContent = WEATHER_NAME[k]; weatherEl.dataset.k = k; if (document.getElementById('loading') === null) ui.toast(WEATHER_NAME[k], 1600); };
 player.turnaround = !!atlas.frames['pl2_0'];
 player.walkCycles = !!atlas.frames['pl3_0_8'];
 if (atlas.frames['pl4_0_w0']) {
@@ -480,17 +484,22 @@ function render(time: number) {
   }
   fx.drawAir(ctx, ts, camX, camY, vw, vh);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  drawScreenLight(ctx, canvas.width, canvas.height, ts);
+  weather.draw(ctx, canvas.width, canvas.height, frameDt, dpr);
+  drawScreenLight(ctx, canvas.width, canvas.height, ts, weather.sun);
 }
 
 // ------------------------------------------------------------------- loop
 let last = performance.now();
+let frameDt = 0;
 updateCamera(0, true);
 function frame(t: number) {
   const dt = Math.min(0.05, (t - last) / 1000);
   last = t;
   update(dt);
   fx.update(dt);
+  weather.update(dt, store.now());
+  fx.rainK = weather.rain;
+  frameDt = dt;
   render(t);
   requestAnimationFrame(frame);
 }
