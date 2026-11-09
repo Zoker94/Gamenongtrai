@@ -11,6 +11,7 @@ import { updateOrientation } from './orient.ts';
 import { Store } from './net.ts';
 import { enterGame, logout } from './login.ts';
 import { Player } from './player.ts';
+import { FARM_NPCS, Npc } from './npc.ts';
 import { UI } from './ui.ts';
 import { TILE, World } from './world.ts';
 
@@ -46,7 +47,7 @@ const world = new World(map, atlas, cachedGround);
 if (world.rendered) setTimeout(() => { void world.chunkBlobs().then((b) => saveGround(map.id, b)); }, 3000);
 const store = new Store((x, y) => isTillable(map, x, y), map.starter, session.token, session.profile.username);
 store.onAuthFail = () => logout();
-if (new URLSearchParams(location.search).has('debug')) (window as unknown as { __store: Store }).__store = store;
+if (new URLSearchParams(location.search).has('debug')) Object.assign(window, { __store: store });
 const playerName = session.profile.name;
 (document.getElementById('pname') as HTMLElement).textContent = playerName;
 document.getElementById('avatar')!.addEventListener('click', () => { if (confirm(`Đăng xuất tài khoản ${session.profile.username}?`)) logout(); });
@@ -54,6 +55,8 @@ const ui = new UI(atlas);
 const input = new Input(canvas, document.getElementById('stick')!, document.getElementById('knob')!, document.getElementById('act')!);
 const player = new Player(map.spawn.x * TILE + TILE / 2, map.spawn.y * TILE + TILE - 4);
 const fx = new Effects(world);
+const npcs = FARM_NPCS.filter((d) => atlas.frames[`${d.sprite}_0`]).map((d) => new Npc(d));
+if (new URLSearchParams(location.search).has('debug')) Object.assign(window, { __npcs: npcs, __player: player });
 const weather = new Weather();
 const weatherEl = document.getElementById('weather') as HTMLElement;
 weather.onChange = (k) => {
@@ -244,9 +247,15 @@ function update(dt: number) {
   input.axis(axis);
   player.running = input.run;
   player.update(dt, axis.x, axis.y, world);
+  for (const n of npcs) n.update(dt, world, player.x, player.y);
   if (player.moving && (stepT += dt) > (player.running ? 0.18 : 0.3)) { stepT = 0; fx.burst(player.x, player.y - 1, 'dust', player.running ? 3 : 2); }
 
   // pointer: tap a tile near you to use it, far away to walk there
+  if (input.tap) {
+    const w0 = screenToWorld(input.tap.x, input.tap.y);
+    const tapped = npcs.find((m) => Math.abs(w0.x - m.x) < 14 && w0.y < m.y + 4 && w0.y > m.y - 44);
+    if (tapped && Math.hypot(tapped.x - player.x, tapped.y - player.y) < 60) { tapped.talk(); input.tap = null; }
+  }
   if (input.tap) {
     const w = screenToWorld(input.tap.x, input.tap.y);
     const t = targetAt(w.x, w.y);
@@ -270,7 +279,11 @@ function update(dt: number) {
     const [cx, cy] = targetCenter(t);
     if (Math.hypot(cx - player.x, cy - (player.y - 6)) <= TILE * 1.7) target = t;
   }
-  if (input.actionPressed && !player.busy) useTarget(target);
+  if (input.actionPressed && !player.busy) {
+    const n = npcs.find((m) => Math.hypot(m.x - player.x, m.y - player.y) < 40);
+    if (n) { player.faceToward(n.x, n.y - 10); n.talk(); }
+    else useTarget(target);
+  }
   input.consume();
 
   // map exits (other maps come next)
@@ -422,6 +435,7 @@ function render(time: number) {
     if (o.r < camX || o.l > vr || o.b < camY || o.t > vb + 8) continue;
     push(o.name, o.x, o.y, o.flip);
   }
+  for (const n of npcs) push(n.frame + ':n', n.x, n.y, false);
   const px = Math.round(player.x), py = Math.round(player.y);
   const [pf, pflip] = player.frame;
   push(pf, px, py, pflip);
@@ -440,6 +454,15 @@ function render(time: number) {
       ctx.transform(sx, 0, -lean * sy, sy, 0, 0);
       drawAnchored(ctx, atlas, d.name, 0, 0, d.flip);
       ctx.restore();
+      continue;
+    }
+    if (d.name.endsWith(':n')) {            // NPC: same scale as the player, step bounce
+      const n = npcs.find((m) => m.x === d.x && m.y === d.y)!;
+      ctx.fillStyle = 'rgba(30,36,10,0.3)';
+      ctx.beginPath(); ctx.ellipse(d.x, d.y - 0.5, 7, 2.4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.save(); ctx.imageSmoothingEnabled = true;
+      ctx.translate(d.x, d.y - (n ? n.bob : 0)); ctx.scale(1.25, 1.25);
+      drawAnchored(ctx, atlas, d.name.slice(0, -2), 0, 0, false); ctx.restore();
       continue;
     }
     if (d.name.endsWith(':p')) {           // crop on a small plot: scaled to the plot
@@ -581,6 +604,33 @@ function render(time: number) {
       ctx.font = '5px system-ui, sans-serif';
       ctx.fillStyle = color;
       ctx.fillText(line, tx + bw / 2, ty + 13.5);
+    }
+  }
+  // NPC names and speech bubbles
+  for (const n of npcs) {
+    ctx.font = 'bold 6px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    const nw = ctx.measureText(n.def.name).width + 6;
+    ctx.fillStyle = 'rgba(120,70,10,0.7)';
+    roundRect(n.x - nw / 2, n.y - 50, nw, 9, 3); ctx.fill();
+    ctx.fillStyle = '#ffe9a8'; ctx.fillText(n.def.name, n.x, n.y - 42);
+    if (n.sayT > 0) {
+      ctx.font = '5.5px system-ui, sans-serif';
+      // wrap to ~110px
+      const words = n.say.split(' '), lines: string[] = [];
+      let cur = '';
+      for (const wd of words) { const t = cur ? cur + ' ' + wd : wd; if (ctx.measureText(t).width > 110 && cur) { lines.push(cur); cur = wd; } else cur = t; }
+      if (cur) lines.push(cur);
+      const bw = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 10, bh = lines.length * 7 + 6;
+      let bx = n.x - bw / 2; bx = Math.max(camX + 2, Math.min(camX + vw - bw - 2, bx));
+      const by = n.y - 56 - bh;
+      ctx.globalAlpha = Math.min(1, n.sayT * 3);
+      ctx.fillStyle = 'rgba(255,248,228,0.97)'; ctx.strokeStyle = '#4a2c17'; ctx.lineWidth = 1;
+      roundRect(bx, by, bw, bh, 4); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(n.x - 3, by + bh); ctx.lineTo(n.x + 3, by + bh); ctx.lineTo(n.x, by + bh + 4); ctx.closePath();
+      ctx.fillStyle = 'rgba(255,248,228,0.97)'; ctx.fill();
+      ctx.fillStyle = '#4a2c17'; ctx.textBaseline = 'top';
+      lines.forEach((l, i) => ctx.fillText(l, bx + bw / 2, by + 3.5 + i * 7));
+      ctx.globalAlpha = 1;
     }
   }
   // name tag above the player's head

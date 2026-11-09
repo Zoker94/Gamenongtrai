@@ -353,6 +353,21 @@ def cut_char2():
     return out
 
 
+def cut_npcs():
+    """NPC turnaround GIFs (8 frames: down, down-right, right, up-right, up,
+    up-left, left, down-left) -> npc_<name>_<d>, scaled 2x nearest."""
+    from PIL import ImageSequence
+    out = {}
+    for name in ('farmer',):
+        path = os.path.join(ROOT, f'assets/source/npc_{name}.gif')
+        if not os.path.exists(path):
+            continue
+        frames = [f.convert('RGBA') for f in ImageSequence.Iterator(Image.open(path))]
+        for i, f in enumerate(frames):
+            out[f'npc_{name}_{i}'] = feet_align(f.resize((f.width * 2, f.height * 2), Image.NEAREST))
+    return out
+
+
 def cut_player():
     out = {}
     for name, (c, r) in P_FRAMES.items():
@@ -1061,6 +1076,7 @@ def main():
         else:
             images[name] = trim(downscale(cut_object(sh, (x0, y0, x1, y1)), mult=mult))
     images.update(cut_player()); native.update(k for k in images if k.startswith('pl_'))
+    npcs = cut_npcs(); images.update(npcs); native.update(npcs)
     c2 = cut_char2()
     if c2:
         # active protagonist: only its frames go into the atlas
