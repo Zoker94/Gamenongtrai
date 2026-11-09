@@ -51,7 +51,7 @@ if (new URLSearchParams(location.search).has('debug')) Object.assign(window, { _
 const playerName = session.profile.name;
 (document.getElementById('pname') as HTMLElement).textContent = playerName;
 document.getElementById('avatar')!.addEventListener('click', () => { if (confirm(`Đăng xuất tài khoản ${session.profile.username}?`)) logout(); });
-const ui = new UI(atlas);
+const ui = new UI(atlas, session.profile.gender === 'f' && atlas.frames['portrait_f'] ? 'portrait_f' : 'portrait');
 const input = new Input(canvas, document.getElementById('stick')!, document.getElementById('knob')!, document.getElementById('act')!);
 const player = new Player(map.spawn.x * TILE + TILE / 2, map.spawn.y * TILE + TILE - 4);
 const fx = new Effects(world);
@@ -66,8 +66,9 @@ weather.onChange = (k) => {
 };
 player.turnaround = !!atlas.frames['pl2_0'];
 player.walkCycles = !!atlas.frames['pl3_0_8'];
-if (atlas.frames['pl4_0_w0']) {
-  const count = (d: number, k: string) => { let n = 0; while (atlas.frames[`pl4_${d}_${k}${n}`]) n++; return n; };
+player.sprite = session.profile.gender === 'f' && atlas.frames['pl5_0_w0'] ? 'pl5' : 'pl4';
+if (atlas.frames[`${player.sprite}_0_w0`]) {
+  const count = (d: number, k: string) => { let n = 0; while (atlas.frames[`${player.sprite}_${d}_${k}${n}`]) n++; return n; };
   player.idleN = [0, 1, 2, 3, 4, 5, 6, 7].map((d) => count(d, 'i'));
   player.walkN = [0, 1, 2, 3, 4, 5, 6, 7].map((d) => count(d, 'w'));
   player.harvestN = [0, 1, 2, 3, 4, 5, 6, 7].map((d) => count(d, 'h'));

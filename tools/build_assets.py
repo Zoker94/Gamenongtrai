@@ -298,13 +298,13 @@ def cut_player_walk():
 ANCHORS = {}   # sprite name -> px (atlas) the image extends below its anchor
 
 
-def cut_char2():
+def cut_char2(folder='char2', prefix='pl4'):
     """assets/source/char2/: idle_<d>.gif (breathing, 4 directions) and
     walk_<d>.gif (8 directions). d: 0 down, 1 down-right, 2 right, 3 up-right,
     4 up, 5 up-left, 6 left, 7 down-left. Frames -> pl4_<d>_i<n> / pl4_<d>_w<n>.
     Diagonal directions without an idle use their most 'standing' walk frame."""
     from PIL import ImageSequence
-    base = os.path.join(ROOT, 'assets/source/char2')
+    base = os.path.join(ROOT, 'assets/source', folder)
     if not os.path.isdir(base):
         return {}
 
@@ -336,9 +336,9 @@ def cut_char2():
         frames = idle + walk
         cx = round(sum(feet_x(f) for f in frames) / len(frames))
         for i, f in enumerate(idle):
-            out[f'pl4_{d}_i{i}'] = place(f, cx)
+            out[f'{prefix}_{d}_i{i}'] = place(f, cx)
         for i, f in enumerate(walk):
-            out[f'pl4_{d}_w{i}'] = place(f, cx)
+            out[f'{prefix}_{d}_w{i}'] = place(f, cx)
         # harvest (pick up a crate): same canvas position as the idle frames,
         # bottom cut at the idle feet line so the body does not jump
         for act, tag in (('harvest', 'h'), ('hoe', 'g'), ('water', 'u')):
@@ -355,9 +355,9 @@ def cut_char2():
               hw = max(cx - bb2[0], bb2[2] - cx) + 1
               im = Image.new('RGBA', (hw * 2, bot - bb2[1]), (0, 0, 0, 0))
               im.paste(f2.crop((bb2[0], bb2[1], bb2[2], bot)), (hw - (cx - bb2[0]), 0))
-              out[f'pl4_{d}_{tag}{i}'] = im
+              out[f'{prefix}_{d}_{tag}{i}'] = im
               if bot > base_y:
-                  ANCHORS[f'pl4_{d}_{tag}{i}'] = bot - base_y
+                  ANCHORS[f'{prefix}_{d}_{tag}{i}'] = bot - base_y
     return out
 
 
@@ -1090,14 +1090,20 @@ def main():
         # active protagonist: only its frames go into the atlas
         images.update(c2); native.update(c2)
         from PIL import ImageSequence
-        f0 = next(ImageSequence.Iterator(Image.open(os.path.join(ROOT, 'assets/source/char2/idle_0.gif')))).convert('RGBA')
-        bb = f0.getchannel('A').getbbox()
-        head = f0.crop((bb[0], bb[1], bb[2], bb[1] + (bb[3] - bb[1]) * 45 // 100))
-        port = Image.new('RGBA', (44 * RES, 42 * RES), (240, 190, 110, 255))
-        k = min((44 * RES - 10) / head.width, (42 * RES - 6) / head.height)
-        hs = head.resize((int(head.width * k), int(head.height * k)), Image.NEAREST)
-        port.alpha_composite(hs, ((port.width - hs.width) // 2, port.height - hs.height))
-        images['portrait'] = port; native.add('portrait')
+        cf = cut_char2('char_f', 'pl5')          # female protagonist
+        images.update(cf); native.update(cf)
+        for folder, pname in (('char2', 'portrait'), ('char_f', 'portrait_f')):
+            fp = os.path.join(ROOT, 'assets/source', folder, 'idle_0.gif')
+            if not os.path.exists(fp):
+                continue
+            f0 = next(ImageSequence.Iterator(Image.open(fp))).convert('RGBA')
+            bb = f0.getchannel('A').getbbox()
+            head = f0.crop((bb[0], bb[1], bb[2], bb[1] + (bb[3] - bb[1]) * 45 // 100))
+            port = Image.new('RGBA', (44 * RES, 42 * RES), (240, 190, 110, 255))
+            k = min((44 * RES - 10) / head.width, (42 * RES - 6) / head.height)
+            hs = head.resize((int(head.width * k), int(head.height * k)), Image.NEAREST)
+            port.alpha_composite(hs, ((port.width - hs.width) // 2, port.height - hs.height))
+            images[pname] = port; native.add(pname)
     else:
         images.update(cut_player_gif()); native.update(k for k in images if k.startswith('pl2_'))
         images.update(cut_player_walk()); native.update(k for k in images if k.startswith('pl3_'))

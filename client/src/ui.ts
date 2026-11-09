@@ -22,10 +22,10 @@ export class UI {
   onBuyItem: (item: string, n: number) => void = () => {};
   onSell: (item: string, n: number) => void = () => {};
 
-  constructor(atlas: Atlas) {
+  constructor(atlas: Atlas, portrait = 'portrait') {
     this.atlas = atlas;
     const av = $('avatar');
-    av.replaceChildren(this.iconEl('portrait', 44));
+    av.replaceChildren(this.iconEl(portrait, 44));
     this.hotbar.addEventListener('pointerdown', (e) => {
       const el = (e.target as HTMLElement).closest('[data-i]') as HTMLElement | null;
       if (el) { this.select(+el.dataset.i!); e.preventDefault(); }

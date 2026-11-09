@@ -40,6 +40,8 @@ export class Player {
   running = false;
   private dist = 0;
   /** 8-direction turnaround sprite set (pl2_0..7) instead of sheet 5 frames */
+  /** sprite set prefix: pl4 = male, pl5 = female */
+  sprite = 'pl4';
   turnaround = false;
   /** full 8-direction walk cycles (pl3_<dir>_0 = standing, _1.._8 = walk loop) */
   walkCycles = false;
@@ -86,17 +88,17 @@ export class Player {
     if (this.idleN && this.busy && this.action) {
       const { tag, d, n, total } = this.bodyAnim;
       const i = Math.min(n - 1, Math.floor((total - this.action.t) / Player.FRAME[tag]));
-      return [`pl4_${d}_${tag}${i}`, false];
+      return [`${this.sprite}_${d}_${tag}${i}`, false];
     }
     if (this.idleN) {
       const d = this.dir8;
       if (!this.moving || this.vel < 0.05) {
         const n = this.idleN[d];
         const per = n <= 2 ? 0.8 : n === 3 ? 0.4 : 0.22;   // gif timing per idle set
-        return [`pl4_${d}_i${Math.floor(this.idleT / per) % n}`, false];
+        return [`${this.sprite}_${d}_i${Math.floor(this.idleT / per) % n}`, false];
       }
       const stride = this.running ? 8 : 5.5;        // px per frame: feet match ground speed
-      return [`pl4_${d}_w${Math.floor(this.dist / stride) % this.walkN[d]}`, false];
+      return [`${this.sprite}_${d}_w${Math.floor(this.dist / stride) % this.walkN[d]}`, false];
     }
     if (this.walkCycles) {
       if (!this.moving || this.vel < 0.05) return [`pl3_${this.dir8}_0`, false];
