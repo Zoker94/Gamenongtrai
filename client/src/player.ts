@@ -46,23 +46,33 @@ export class Player {
   /** char2 set: per direction idle (breathing) + walk frame counts, from the atlas */
   idleN: number[] | null = null;
   walkN: number[] = [];
-  /** harvest (crate pick-up) frame counts per direction, 0 = none */
+  /** frame counts per direction of the full-body actions: h = harvest, g = hoe */
   harvestN: number[] = [];
-  private static readonly HARVEST_FRAME = 0.15;
+  hoeN: number[] = [];
+  private static readonly FRAME: Record<string, number> = { h: 0.15, g: 0.1 };
 
-  /** Harvest animation: crouch, lift the crate. Locks movement while it plays. */
-  playHarvest(): boolean {
-    const d = this.harvestDir();
-    const n = this.harvestN[d] || 0;
+  private playBody(tag: 'h' | 'g', counts: number[]): boolean {
+    const d = this.bodyDir(counts);
+    const n = counts[d] || 0;
     if (!n) return false;
-    this.action = { name: 'harvest', t: n * Player.HARVEST_FRAME };
-    this.harvestTotal = n * Player.HARVEST_FRAME;
+    const total = n * Player.FRAME[tag];
+    this.action = { name: tag === 'h' ? 'harvest' : 'hoe', t: total };
+    this.bodyAnim = { tag, d, n, total };
     return true;
   }
-  private harvestTotal = 0;
-  /** diagonals use the side animation */
-  private harvestDir() { const d = this.dir8; return d === 1 || d === 3 ? 2 : d === 5 || d === 7 ? 6 : d; }
-  get busy() { return !!this.action && this.action.name === 'harvest'; }
+  /** Harvest animation: crouch, lift the crate. Locks movement while it plays. */
+  playHarvest() { return this.playBody('h', this.harvestN); }
+  /** Hoe animation: swing the hoe over the head and strike the soil. */
+  playHoe() { return this.playBody('g', this.hoeN); }
+  private bodyAnim = { tag: 'h', d: 0, n: 0, total: 1 };
+  /** diagonals use the side animation; a missing direction falls back to the side / front one */
+  private bodyDir(counts: number[]) {
+    let d = this.dir8;
+    d = d === 1 || d === 3 ? 2 : d === 5 || d === 7 ? 6 : d;
+    if (!counts[d]) d = d === 4 ? (counts[2] ? 2 : 0) : d;
+    return d;
+  }
+  get busy() { return !!this.action && (this.action.name === 'harvest' || this.action.name === 'hoe'); }
   /** 0 down, 1 down-right, 2 right, 3 up-right, 4 up, 5 up-left, 6 left, 7 down-left */
   dir8 = 0;
 
@@ -70,10 +80,10 @@ export class Player {
 
   /** sprite to draw + whether to mirror it */
   get frame(): F {
-    if (this.idleN && this.action && this.action.name === 'harvest') {
-      const d = this.harvestDir(), n = this.harvestN[d];
-      const i = Math.min(n - 1, Math.floor((this.harvestTotal - this.action.t) / Player.HARVEST_FRAME));
-      return [`pl4_${d}_h${i}`, false];
+    if (this.idleN && this.busy && this.action) {
+      const { tag, d, n, total } = this.bodyAnim;
+      const i = Math.min(n - 1, Math.floor((total - this.action.t) / Player.FRAME[tag]));
+      return [`pl4_${d}_${tag}${i}`, false];
     }
     if (this.idleN) {
       const d = this.dir8;
@@ -107,7 +117,7 @@ export class Player {
   /** Continuous body motion layered on the sprite frames, so the 2-frame
    *  walk cycle reads as smooth movement: [dy, scaleX, scaleY, lean]. */
   get pose(): [number, number, number, number] {
-    if (this.action && this.idleN && this.action.name === 'harvest') return [0, 1.35, 1.35, 0];
+    if (this.idleN && this.busy) return [0, 1.35, 1.35, 0];
     if (this.action) {
       // little anticipation squash at the start of a tool swing
       const k = Math.max(0, this.action.t - 0.25) / 0.1;

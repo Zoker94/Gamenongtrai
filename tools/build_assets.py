@@ -338,17 +338,18 @@ def cut_char2():
             out[f'pl4_{d}_w{i}'] = place(f, cx)
         # harvest (pick up a crate): same canvas position as the idle frames,
         # bottom cut at the idle feet line so the body does not jump
-        hp = os.path.join(base, f'harvest_{d}.gif')
-        if os.path.exists(hp):
-            base_y = max(f.getchannel('A').getbbox()[3] for f in idle)
-            for i, f in enumerate(load(hp)):
-                bb = f.getchannel('A').getbbox()
-                f2 = f.crop((0, 0, f.width, base_y))
-                bb2 = f2.getchannel('A').getbbox()
-                hw = max(cx - bb2[0], bb2[2] - cx) + 1
-                im = Image.new('RGBA', (hw * 2, base_y - bb2[1]), (0, 0, 0, 0))
-                im.paste(f2.crop((bb2[0], bb2[1], bb2[2], base_y)), (hw - (cx - bb2[0]), 0))
-                out[f'pl4_{d}_h{i}'] = im
+        for act, tag in (('harvest', 'h'), ('hoe', 'g')):
+          hp = os.path.join(base, f'{act}_{d}.gif')
+          if not os.path.exists(hp):
+              continue
+          base_y = max(f.getchannel('A').getbbox()[3] for f in idle)
+          for i, f in enumerate(load(hp)):
+              f2 = f.crop((0, 0, f.width, base_y))
+              bb2 = f2.getchannel('A').getbbox()
+              hw = max(cx - bb2[0], bb2[2] - cx) + 1
+              im = Image.new('RGBA', (hw * 2, base_y - bb2[1]), (0, 0, 0, 0))
+              im.paste(f2.crop((bb2[0], bb2[1], bb2[2], base_y)), (hw - (cx - bb2[0]), 0))
+              out[f'pl4_{d}_{tag}{i}'] = im
     return out
 
 
