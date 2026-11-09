@@ -623,8 +623,8 @@ function render(time: number) {
     ctx.font = 'bold 6px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
     const nw = ctx.measureText(n.def.name).width + 6;
     ctx.fillStyle = 'rgba(120,70,10,0.7)';
-    roundRect(n.x - nw / 2, n.y - 56, nw, 9, 3); ctx.fill();
-    ctx.fillStyle = '#ffe9a8'; ctx.fillText(n.def.name, n.x, n.y - 48);
+    roundRect(n.x - nw / 2, n.y - 49, nw, 9, 3); ctx.fill();
+    ctx.fillStyle = '#ffe9a8'; ctx.fillText(n.def.name, n.x, n.y - 41);
     if (n.sayT > 0) {
       ctx.font = '5.5px system-ui, sans-serif';
       // wrap to ~110px
@@ -634,7 +634,7 @@ function render(time: number) {
       if (cur) lines.push(cur);
       const bw = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 10, bh = lines.length * 7 + 6;
       let bx = n.x - bw / 2; bx = Math.max(camX + 2, Math.min(camX + vw - bw - 2, bx));
-      const by = n.y - 62 - bh;
+      const by = n.y - 55 - bh;
       ctx.globalAlpha = Math.min(1, n.sayT * 3);
       ctx.fillStyle = 'rgba(255,248,228,0.97)'; ctx.strokeStyle = '#4a2c17'; ctx.lineWidth = 1;
       roundRect(bx, by, bw, bh, 4); ctx.fill(); ctx.stroke();

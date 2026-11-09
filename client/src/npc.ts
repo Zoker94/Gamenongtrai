@@ -85,12 +85,12 @@ export const FARM_NPCS: NpcDef[] = [
   {
     sprite: 'npc_farmer',
     name: 'Bác Ba',
-    // stands on the grass between the road and the field, by the crossroads
-    waypoints: [[10.5, 9]],
+    // stands next to the shipping chest, where the seed sack used to be
+    waypoints: [[8.7, 7]],
     stationary: true,
     facing: 0,
-    // 17% taller than the player (player idle 88px x1.35 -> 104px sprite x1.34)
-    scale: 1.34,
+    // same height as the player (player idle 88px x1.35 = 104px sprite x1.14)
+    scale: 1.14,
     shop: true,
     lines: [
       'Cháu cần gì cứ chọn nhé! Hạt giống, phân bón, thuốc trừ sâu bác có đủ.',
