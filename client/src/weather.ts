@@ -10,12 +10,15 @@ export const WEATHER_NAME: Record<Kind, string> = {
 const SLOT_MS = 3 * 60 * 1000; // weather changes every 3 minutes
 
 function weatherForSlot(slot: number): Kind {
-  let h = Math.imul(slot ^ 0x9e3779b9, 2654435761) >>> 0;
-  h ^= h >>> 15;
-  const v = (h % 1000) / 1000;
-  if (v < 0.45) return 'sun';
-  if (v < 0.65) return 'cloud';
-  if (v < 0.85) return 'rain';
+  // murmur3 finalizer: well mixed even for consecutive slot numbers
+  let h = (slot ^ 0x9e3779b9) | 0;
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  h ^= h >>> 16;
+  const v = (h >>> 0) / 4294967296;
+  if (v < 0.40) return 'sun';
+  if (v < 0.58) return 'cloud';
+  if (v < 0.83) return 'rain';
   if (v < 0.93) return 'storm';
   return 'fog';
 }
