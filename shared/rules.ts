@@ -70,19 +70,26 @@ export interface FarmState {
 
 /** Character needs, 0 = fine .. 100 = worst. Stored as a snapshot at `at`
  *  and advanced deterministically from timestamps (same on client and server). */
-export interface Needs { h: number; t: number; f: number; at: number }
+export interface Needs { h: number; t: number; f: number; at: number; x?: number /* 1 = exhausted, must rest */ }
 export const NEEDS = {
   hungerPerMin: 0.7,     // 0 -> 100 in about 2.4 h
   thirstPerMin: 1,       // 0 -> 100 in about 1.7 h
   restPerMin: 1.5,       // fatigue recovers while not working
   workFatigue: 1.5,      // each farming action (till, water, harvest...)
+  recoverTo: 70,         // once exhausted (100%), rest until fatigue is back down to this
 };
+/** actions that count as tilling / caring for crops: refused while exhausted */
+const CARE = new Set(['till', 'plant', 'water', 'fertilize', 'spray']);
+/** whole minutes of rest still needed before the character can work again */
+export const restMinutes = (n: Needs) => n.x ? Math.max(1, Math.ceil((n.f - NEEDS.recoverTo) / NEEDS.restPerMin)) : 0;
 const clamp100 = (v: number) => Math.max(0, Math.min(100, v));
 export function needsAt(st: FarmState, now: number): Needs {
   const n = st.n;
   if (!n) return { h: 0, t: 0, f: 0, at: now };
   const m = Math.max(0, now - n.at) / 60000;
-  return { h: clamp100(n.h + m * NEEDS.hungerPerMin), t: clamp100(n.t + m * NEEDS.thirstPerMin), f: clamp100(n.f - m * NEEDS.restPerMin), at: now };
+  const f = clamp100(n.f - m * NEEDS.restPerMin);
+  const x = n.x && f > NEEDS.recoverTo ? 1 : 0;
+  return { h: clamp100(n.h + m * NEEDS.hungerPerMin), t: clamp100(n.t + m * NEEDS.thirstPerMin), f, at: now, ...(x ? { x } : {}) };
 }
 
 export type Action =
@@ -197,6 +204,10 @@ export function applyAction(
   if ('x' in a) {
     if (!Number.isInteger(a.x) || !Number.isInteger(a.y)) return 'Ô không hợp lệ';
     const k = key(a.x, a.y);
+    if (CARE.has(a.t)) {
+      const n = needsAt(st, now);
+      if (n.x) return `Bạn đã kiệt sức! Nghỉ ngơi thêm khoảng ${restMinutes(n)} phút để làm tiếp`;
+    }
     const p = st.plots[k];
     if (p) growPlot(p, now, k);
     switch (a.t) {
@@ -289,7 +300,10 @@ export function applyAction(
   }
   if ('x' in a) {                         // farm work tires the character
     const n = needsAt(st, now);
-    n.f = clamp100(n.f + NEEDS.workFatigue);
+    if (!n.x) {                           // (harvesting while exhausted doesn't add more)
+      n.f = clamp100(n.f + NEEDS.workFatigue);
+      if (n.f >= 100) n.x = 1;
+    }
     st.n = n;
   }
   st.v++;

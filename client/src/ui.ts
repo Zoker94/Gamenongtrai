@@ -1,4 +1,4 @@
-import { CROPS, CROP_IDS, SUPPLIES, WEAR_SLOTS, WEARABLES, needsAt, type FarmState } from '../../shared/rules.ts';
+import { CROPS, CROP_IDS, SUPPLIES, WEAR_SLOTS, WEARABLES, needsAt, restMinutes, type FarmState } from '../../shared/rules.ts';
 import { type Atlas, iconCanvas } from './atlas.ts';
 
 export interface Slot { id: string; icon: string; label: string; count?: number }
@@ -207,7 +207,8 @@ export class UI {
         <span class="bar"><i style="width:${Math.round(v)}%"></i></span><b>${Math.round(v)}%</b></div>`;
     const needs = bar('Đói', nd.h, ['No bụng', 'Hơi đói', 'Đói', 'Rất đói'], 'hunger')
       + bar('Khát', nd.t, ['Đủ nước', 'Hơi khát', 'Khát', 'Rất khát'], 'thirst')
-      + bar('Mệt mỏi', nd.f, ['Khỏe khoắn', 'Hơi mệt', 'Mệt', 'Kiệt sức'], 'tired');
+      + bar('Mệt mỏi', nd.f, nd.x ? Array(4).fill('Kiệt sức') as [string, string, string, string]
+        : ['Khỏe khoắn', 'Hơi mệt', 'Mệt', 'Rất mệt'], 'tired' + (nd.x ? ' bad' : ''));
     const owned = Object.keys(WEARABLES).filter((id) => st.inv['wear:' + id] && (!WEARABLES[id].gender || WEARABLES[id].gender === me.gender));
     const items = owned.length
       ? owned.map((id) => {
@@ -223,6 +224,7 @@ export class UI {
         <div class="wear-r">
           <div class="money"><span>Tiền</span><b>${vnd(st.coins)}</b></div>
           <h3>Trạng thái</h3><div class="needs">${needs}</div>
+          ${nd.x ? `<p class="rest">Đang kiệt sức: nghỉ thêm khoảng ${restMinutes(nd)} phút mới cuốc đất, chăm cây được.</p>` : ''}
           <h3>Đang mặc</h3><div class="wslots">${slots}</div>
           <h3>Tủ đồ</h3><div class="grid">${items}</div></div>
       </div>`;

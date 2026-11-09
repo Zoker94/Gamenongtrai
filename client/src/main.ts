@@ -1,6 +1,6 @@
 import './style.css';
 import { buildFarm, isTillable } from '../../shared/maps/farm.ts';
-import { CROPS, RIPE, SUPPLIES, WEARABLES, hasPests, key, secsToRipe, totalProgress, type Plot } from '../../shared/rules.ts';
+import { CROPS, RIPE, SUPPLIES, WEARABLES, hasPests, needsAt, key, secsToRipe, totalProgress, type Plot } from '../../shared/rules.ts';
 import { isRainingAt } from '../../shared/weather.ts';
 import { drawAnchored, drawAt, loadAtlas } from './atlas.ts';
 import { Effects, drawScreenLight, swayFor } from './effects.ts';
@@ -152,6 +152,10 @@ function useTarget(t: Target) {
     return;
   }
   const slot = ui.current;
+  const wasTired = !!needsAt(store.st, store.now()).x;
+  queueMicrotask(() => {
+    if (!wasTired && needsAt(store.st, store.now()).x) ui.toast('Bạn đã kiệt sức! Hãy nghỉ ngơi trước khi cuốc đất, chăm cây', 2600);
+  });
   if (slot.id === 'hoe') { if (store.act({ t: 'till', x: tx, y: ty })) { if (!player.playHoe()) player.playAction('pl_hoe'); setTimeout(() => fx.burst(bx + bc / 2, by + bc - 4, 'soil', 10), 420); } }
   else if (slot.id === 'can') { if (store.act({ t: 'water', x: tx, y: ty })) { if (!player.playWater()) player.playAction('pl_water'); setTimeout(() => fx.burst(bx + bc / 2, by + bc / 2, 'water', 12), 550); } }
   else if (slot.id.startsWith('seed:')) store.act({ t: 'plant', x: tx, y: ty, crop: slot.id.slice(5) });

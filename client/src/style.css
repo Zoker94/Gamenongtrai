@@ -361,7 +361,9 @@ body.touch #stick { background: rgba(255, 240, 200, .18); border: 3px solid rgba
   .wardrobe .money b { font-size: 15px; }
   .needs { gap: 2px; grid-template-columns: 1fr 1fr 1fr; column-gap: 10px; }
   .need { grid-template-columns: 1fr 30px; gap: 2px 4px; }
-  .need .nm { grid-column: 1 / -1; display: flex; gap: 6px; align-items: baseline; font-size: 12px; }
+  .need .nm { grid-column: 1 / -1; display: flex; gap: 6px; align-items: baseline; font-size: 12px; white-space: nowrap; }
+  .need .nm small { overflow: hidden; text-overflow: ellipsis; }
   .need .bar { height: 8px; }
   .need b { font-size: 11px; }
 }
+.wardrobe .rest { margin: 4px 0 0; font-size: 12px; font-weight: 700; color: #b23b2c; }
