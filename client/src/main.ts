@@ -587,7 +587,7 @@ function render(time: number) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
     const tw = ctx.measureText(playerName).width + 6;
-    const tx = player.x, ty = player.y - 37;
+    const tx = player.x, ty = player.y - 40;
     ctx.fillStyle = 'rgba(40,24,10,0.55)';
     roundRect(tx - tw / 2, ty - 8, tw, 9, 3); ctx.fill();
     ctx.fillStyle = '#fff6dc';

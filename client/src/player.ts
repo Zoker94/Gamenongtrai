@@ -107,18 +107,18 @@ export class Player {
   /** Continuous body motion layered on the sprite frames, so the 2-frame
    *  walk cycle reads as smooth movement: [dy, scaleX, scaleY, lean]. */
   get pose(): [number, number, number, number] {
-    if (this.action && this.idleN && this.action.name === 'harvest') return [0, 1.15, 1.15, 0];
+    if (this.action && this.idleN && this.action.name === 'harvest') return [0, 1.35, 1.35, 0];
     if (this.action) {
       // little anticipation squash at the start of a tool swing
       const k = Math.max(0, this.action.t - 0.25) / 0.1;
-      const b = this.idleN ? 1.15 : 1;
+      const b = this.idleN ? 1.35 : 1;
       return [0, b * (1 + 0.06 * k), b * (1 - 0.06 * k), 0];
     }
     if (this.idleN) {
       // real breathing + walk frames: only scale up to the map, tiny lean
       const side = this.dir8 >= 1 && this.dir8 <= 3 ? 1 : this.dir8 >= 5 ? -1 : 0;
       const lean = this.moving ? side * (this.running ? 0.05 : 0.015) * this.vel : 0;
-      return [0, 1.15, 1.15, lean];
+      return [0, 1.35, 1.35, lean];
     }
     if (!this.moving || this.vel < 0.05) {
       // breathing
