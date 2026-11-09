@@ -198,17 +198,22 @@ wss.on('connection', async (ws, req) => {
     lastRefill = now;
     if (tokens < 1) return;
     tokens--;
-    let msg: { t: string; seq: number; a: Action };
+    let msg: { t: string; seq: number; a: Action; ts?: number };
     try { msg = JSON.parse(String(raw)); } catch { return; }
     if (msg?.t !== 'act' || typeof msg.a !== 'object' || !msg.a) return;
-    const err = applyAction(sess.st, msg.a, now, canTill);
+    // use the client's timestamp (when close to ours) so growth, rain and pest
+    // rolls come out exactly as the client predicted them: no flicker back
+    const ts = typeof msg.ts === 'number' && Math.abs(msg.ts - now) < 5000 ? msg.ts : now;
+    const err = applyAction(sess.st, msg.a, ts, canTill);
     if (err) {
       send(ws, { t: 'err', seq: msg.seq, msg: err, st: sess.st, now });
       return;
     }
     // everyone (including the sender) gets the authoritative state: rain / pest
     // timestamps are decided here, the client only predicted them
-    for (const s2 of sess.sockets) send(s2, { t: 'state', st: sess.st, now });
+    // the sender learns which of its actions are included (ack) so it can
+    // replay the ones still in flight instead of flickering back
+    for (const s2 of sess.sockets) send(s2, { t: 'state', st: sess.st, now, ack: s2 === ws ? msg.seq : undefined });
     scheduleSave(id, sess);
   });
 

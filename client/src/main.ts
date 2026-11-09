@@ -46,6 +46,7 @@ const world = new World(map, atlas, cachedGround);
 if (world.rendered) setTimeout(() => { void world.chunkBlobs().then((b) => saveGround(map.id, b)); }, 3000);
 const store = new Store((x, y) => isTillable(map, x, y), map.starter, session.token, session.profile.username);
 store.onAuthFail = () => logout();
+if (new URLSearchParams(location.search).has('debug')) (window as unknown as { __store: Store }).__store = store;
 const playerName = session.profile.name;
 (document.getElementById('pname') as HTMLElement).textContent = playerName;
 document.getElementById('avatar')!.addEventListener('click', () => { if (confirm(`Đăng xuất tài khoản ${session.profile.username}?`)) logout(); });
