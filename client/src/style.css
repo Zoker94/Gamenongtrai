@@ -297,6 +297,46 @@ body.touch #stick { background: rgba(255, 240, 200, .18); border: 3px solid rgba
 .abox .char.on { border-color: #e8a62a; background: #fff3cf; box-shadow: 0 0 0 3px rgba(242,193,78,.5); }
 .abox .char.soon { opacity: .55; cursor: default; }
 .abox .char.soon span { font-size: 12px; }
-#avatar { cursor: pointer; }
+#avatar { cursor: pointer; pointer-events: auto; }
 #pname { align-self: center; }
 @media (max-height: 520px) { .abox { gap: 6px; padding: 12px 14px; } .abox h1 { font-size: 20px; } .abox .char canvas { max-width: 90px; } }
+
+/* character tab: figure on the left, clothing slots + wardrobe on the right */
+.wardrobe { display: grid; grid-template-columns: 150px 1fr; gap: 14px; align-items: start; }
+.wardrobe .me { display: grid; justify-items: center; gap: 2px; padding: 10px 8px; border-radius: 14px;
+  background: radial-gradient(circle at 50% 40%, #fffaf0, #f3dfb0); border: 2px solid rgba(122, 74, 38, .35); }
+.wardrobe .fig canvas { width: 112px; height: 112px; image-rendering: pixelated; display: block; }
+.wardrobe .me b { font-size: 16px; color: var(--wood-d); margin-top: 4px; }
+.wardrobe .me small { color: #8a6a44; font-weight: 700; }
+.wardrobe .me .out { margin-top: 10px; font: inherit; font-weight: 700; font-size: 13px; padding: 6px 12px; cursor: pointer;
+  background: linear-gradient(#e46b5a, #b23b2c); border-color: #6e1f16; box-shadow: 0 3px 0 #6e1f16; }
+.wardrobe h3:first-child { margin-top: 0; }
+.wslots { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.wslot { display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 12px;
+  background: rgba(255, 255, 255, .55); border: 2px solid rgba(122, 74, 38, .3); }
+.wslot.on { border-color: #e8a62a; background: #fff3cf; }
+.wslot .ic { width: 40px; height: 40px; }
+.wslot .ic canvas { width: 32px; height: 32px; }
+.wslot .ic.none { border-style: dashed; background: rgba(255, 248, 228, .6); }
+.wslot .nm { display: grid; font-size: 13px; }
+.wslot .nm small { font-size: 11px; }
+.wslot button { font: inherit; font-size: 12px; font-weight: 700; padding: 4px 8px; cursor: pointer; }
+.box .cell.on { border-color: #e8a62a; background: #fff3cf; }
+.box .cell button { font: inherit; font-size: 12px; font-weight: 700; padding: 2px 10px; cursor: pointer; }
+.box .cell em { font-size: 11px; font-style: normal; font-weight: 800; color: #b8860b; }
+@media (max-height: 500px) {
+  .wardrobe { grid-template-columns: 112px 1fr; gap: 10px; }
+  .wardrobe .me { padding: 6px; }
+  .wardrobe .fig canvas { width: 72px; height: 72px; }
+  .wardrobe .me b { font-size: 14px; margin-top: 0; }
+  .wardrobe .me .out { margin-top: 6px; padding: 4px 10px; font-size: 12px; }
+  .wardrobe h3 { margin: 6px 0 4px; }
+  .wslots { grid-template-columns: repeat(3, 1fr); gap: 4px; }
+  .wslot { grid-template-columns: 30px 1fr auto; gap: 5px; padding: 3px 4px; border-radius: 10px; }
+  .wslot .ic { width: 30px; height: 30px; border-radius: 8px; }
+  .wslot .ic canvas { width: 24px; height: 24px; }
+  .wslot .nm { font-size: 12px; }
+  .box:has(.wardrobe) { padding: 10px 12px; max-height: calc(100vh - 16px); }
+  .box:has(.wardrobe) header { padding-bottom: 4px; }
+}
+.box:has(.wardrobe) { width: min(620px, calc(100vw - 24px)); }

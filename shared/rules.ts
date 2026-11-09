@@ -46,6 +46,17 @@ export const SUPPLIES: Record<string, { name: string; price: number }> = {
   fert: { name: 'Phân bón', price: 15 },
   spray: { name: 'Thuốc trừ sâu', price: 20 },
 };
+/** Clothing slots of the character (wardrobe opened from the avatar). */
+export const WEAR_SLOTS: { id: string; name: string }[] = [
+  { id: 'hat', name: 'Mũ' },
+  { id: 'shirt', name: 'Áo' },
+  { id: 'pants', name: 'Quần' },
+  { id: 'shoes', name: 'Giày' },
+  { id: 'acc', name: 'Phụ kiện' },
+];
+/** Clothing catalog. Empty until the clothing assets arrive: add an entry per
+ *  item (icon = atlas frame name), players own them as inv['wear:<id>']. */
+export const WEARABLES: Record<string, { name: string; slot: string; icon: string; gender?: 'm' | 'f'; price?: number }> = {};
 const PEST_CHANCE = 0.22;
 
 export interface FarmState {
@@ -53,6 +64,7 @@ export interface FarmState {
   coins: number;
   inv: Record<string, number>; // 'seed:carrot', 'carrot', ...
   plots: Record<string, Plot>; // key "x,y"
+  wear?: Record<string, string>; // equipped clothing: slot -> item id (owned as inv['wear:<id>'])
 }
 
 export type Action =
@@ -65,7 +77,9 @@ export type Action =
   | { t: 'fertilize'; x: number; y: number }
   | { t: 'spray'; x: number; y: number }
   | { t: 'buy'; crop: string; n: number }
-  | { t: 'buyItem'; item: string; n: number };
+  | { t: 'buyItem'; item: string; n: number }
+  | { t: 'equip'; item: string }
+  | { t: 'unequip'; slot: string };
 
 export const key = (x: number, y: number) => x + ',' + y;
 
@@ -244,6 +258,14 @@ export function applyAction(
     if (st.coins < def.price * n) return 'Không đủ tiền';
     st.coins -= def.price * n;
     add(st.inv, a.item, n);
+  } else if (a.t === 'equip') {
+    const def = WEARABLES[a.item];
+    if (!def) return 'Không có món đồ này';
+    if (!st.inv['wear:' + a.item]) return 'Bạn chưa có món đồ này';
+    (st.wear ||= {})[def.slot] = a.item;
+  } else if (a.t === 'unequip') {
+    if (!st.wear || !st.wear[a.slot]) return 'Ô này đang trống';
+    delete st.wear[a.slot];
   } else {
     return 'Hành động lạ';
   }

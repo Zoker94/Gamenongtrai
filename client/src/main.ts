@@ -1,6 +1,6 @@
 import './style.css';
 import { buildFarm, isTillable } from '../../shared/maps/farm.ts';
-import { CROPS, RIPE, SUPPLIES, hasPests, key, secsToRipe, totalProgress, type Plot } from '../../shared/rules.ts';
+import { CROPS, RIPE, SUPPLIES, WEARABLES, hasPests, key, secsToRipe, totalProgress, type Plot } from '../../shared/rules.ts';
 import { isRainingAt } from '../../shared/weather.ts';
 import { drawAnchored, drawAt, loadAtlas } from './atlas.ts';
 import { Effects, drawScreenLight, swayFor } from './effects.ts';
@@ -51,7 +51,6 @@ store.onAuthFail = () => logout();
 if (new URLSearchParams(location.search).has('debug')) Object.assign(window, { __store: store });
 const playerName = session.profile.name;
 (document.getElementById('pname') as HTMLElement).textContent = playerName;
-document.getElementById('avatar')!.addEventListener('click', () => { if (confirm(`Đăng xuất tài khoản ${session.profile.username}?`)) logout(); });
 const ui = new UI(atlas, session.profile.gender === 'f' && atlas.frames['portrait_f'] ? 'portrait_f' : 'portrait');
 const input = new Input(canvas, document.getElementById('stick')!, document.getElementById('knob')!, document.getElementById('act')!);
 const player = new Player(map.spawn.x * TILE + TILE / 2, map.spawn.y * TILE + TILE - 4);
@@ -84,6 +83,12 @@ const spots = new Map(map.spots.map((s) => [key(s.x, s.y), s.id]));
 store.onChange = () => { ui.update(store.st); ui.refresh(store.st); };
 store.onError = (m) => ui.toast(m);
 store.onNet = (on) => { ui.setNet(on); if (on) ui.toast('Đã kết nối máy chủ'); };
+// avatar -> character tab (clothing slots + wardrobe, logout)
+ui.me = { name: playerName, username: session.profile.username, sprite: player.sprite, gender: session.profile.gender === 'f' ? 'f' : 'm' };
+document.getElementById('avatar')!.addEventListener('click', () => ui.openWardrobe(store.st));
+ui.onEquip = (item) => { if (store.act({ t: 'equip', item })) ui.toast(`Đã mặc ${WEARABLES[item].name}`); };
+ui.onUnequip = (slot) => { store.act({ t: 'unequip', slot }); };
+ui.onLogout = () => { if (confirm(`Đăng xuất tài khoản ${session.profile.username}?`)) logout(); };
 ui.onBuy = (crop, n) => { if (store.act({ t: 'buy', crop, n })) ui.toast(`Đã mua ${n} hạt ${CROPS[crop].name}`); };
 ui.onBuyItem = (item, n) => { if (store.act({ t: 'buyItem', item, n })) ui.toast(`Đã mua ${n} ${SUPPLIES[item].name}`); };
 ui.onSell = (item, n) => {

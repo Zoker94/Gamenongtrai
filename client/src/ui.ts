@@ -1,4 +1,4 @@
-import { CROPS, CROP_IDS, SUPPLIES, type FarmState } from '../../shared/rules.ts';
+import { CROPS, CROP_IDS, SUPPLIES, WEAR_SLOTS, WEARABLES, type FarmState } from '../../shared/rules.ts';
 import { type Atlas, iconCanvas } from './atlas.ts';
 
 export interface Slot { id: string; icon: string; label: string; count?: number }
@@ -21,6 +21,11 @@ export class UI {
   onBuy: (crop: string, n: number) => void = () => {};
   onBuyItem: (item: string, n: number) => void = () => {};
   onSell: (item: string, n: number) => void = () => {};
+  onEquip: (item: string) => void = () => {};
+  onUnequip: (slot: string) => void = () => {};
+  onLogout: () => void = () => {};
+  /** who is shown in the wardrobe (set once after login) */
+  me = { name: '', username: '', sprite: 'pl4', gender: 'm' as 'm' | 'f' };
 
   constructor(atlas: Atlas, portrait = 'portrait') {
     this.atlas = atlas;
@@ -37,6 +42,9 @@ export class UI {
       else if (b.dataset.buy) this.onBuy(b.dataset.buy, +(b.dataset.n || 1));
       else if (b.dataset.item) this.onBuyItem(b.dataset.item, +(b.dataset.n || 1));
       else if (b.dataset.sell) this.onSell(b.dataset.sell, +(b.dataset.n || 1));
+      else if (b.dataset.equip) this.onEquip(b.dataset.equip);
+      else if (b.dataset.unequip) this.onUnequip(b.dataset.unequip);
+      else if (b.dataset.logout != null) this.onLogout();
     });
   }
 
@@ -175,11 +183,42 @@ export class UI {
     if (this.panel.dataset.kind === 'shop') this.openShop(st);
     else if (this.panel.dataset.kind === 'ship') this.openShip(st);
     else if (this.panel.dataset.kind === 'store') this.openStore(st);
+    else if (this.panel.dataset.kind === 'wear') this.openWardrobe(st);
+  }
+
+  /** Character tab (tap the avatar): the character, its clothing slots and the
+   *  wardrobe of owned clothes. Clothing items come later with their assets. */
+  openWardrobe(st: FarmState) {
+    this.panel.dataset.kind = 'wear';
+    const me = this.me, wear = st.wear || {};
+    const slots = WEAR_SLOTS.map((sl) => {
+      const id = wear[sl.id], def = id ? WEARABLES[id] : null;
+      return `<div class="wslot${def ? ' on' : ''}">
+        ${def ? `<span class="ic" data-ic="${def.icon}"></span>` : `<span class="ic none" data-slot="${sl.id}"></span>`}
+        <span class="nm">${sl.name}<small>${def ? def.name : 'Trống'}</small></span>
+        ${def ? `<button data-unequip="${sl.id}">Tháo</button>` : ''}</div>`;
+    }).join('');
+    const owned = Object.keys(WEARABLES).filter((id) => st.inv['wear:' + id] && (!WEARABLES[id].gender || WEARABLES[id].gender === me.gender));
+    const items = owned.length
+      ? owned.map((id) => {
+          const d = WEARABLES[id], on = wear[d.slot] === id;
+          return `<div class="cell${on ? ' on' : ''}"><span class="ic" data-ic="${d.icon}"></span><small>${d.name}</small>
+            ${on ? '<em>Đang mặc</em>' : `<button data-equip="${id}">Mặc</button>`}</div>`;
+        }).join('')
+      : '<p class="empty">Chưa có đồ trong tủ. Quần áo, mũ, giày sẽ được cập nhật sau.</p>';
+    const body = `<div class="wardrobe">
+        <div class="me"><span class="fig" data-ic="${me.sprite}_0_i0" data-sz="96"></span>
+          <b>${me.name}</b><small>@${me.username}</small>
+          <button class="out" data-logout>Đăng xuất</button></div>
+        <div class="wear-r"><h3>Đang mặc</h3><div class="wslots">${slots}</div>
+          <h3>Tủ đồ</h3><div class="grid">${items}</div></div>
+      </div>`;
+    this.showPanel('Nhân vật', body);
   }
 
   private showPanel(title: string, body: string) {
     this.panel.innerHTML = `<div class="box"><header><h2>${title}</h2><button data-close aria-label="Đóng">✕</button></header>${body}</div>`;
-    this.panel.querySelectorAll<HTMLElement>('[data-ic]').forEach((el) => el.append(this.iconEl(el.dataset.ic!, 28)));
+    this.panel.querySelectorAll<HTMLElement>('[data-ic]').forEach((el) => el.append(this.iconEl(el.dataset.ic!, +(el.dataset.sz || 28))));
     this.panel.hidden = false;
   }
 }
