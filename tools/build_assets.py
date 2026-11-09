@@ -878,6 +878,28 @@ def draw_player(direction, frame):
     return im
 
 
+def supply_icons():
+    """Fertilizer sack and pesticide spray bottle (16x16 pixel art)."""
+    out = {}
+    OUTL = (60, 38, 22, 255)
+    im = Image.new('RGBA', (16, 16), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
+    d.polygon([(4, 4), (11, 4), (13, 14), (2, 14)], fill=(214, 186, 128, 255), outline=OUTL)
+    d.rectangle([5, 2, 10, 4], fill=(190, 160, 105, 255), outline=OUTL)
+    d.line([(4, 3), (11, 3)], fill=(150, 90, 50, 255))
+    d.ellipse([5, 7, 10, 12], fill=(96, 168, 70, 255), outline=(50, 100, 40, 255))
+    d.line([(7, 12), (8, 8)], fill=(50, 100, 40, 255))
+    out['it_fert'] = im
+    im = Image.new('RGBA', (16, 16), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
+    d.rectangle([5, 6, 11, 14], fill=(220, 70, 60, 255), outline=(110, 30, 25, 255))
+    d.rectangle([6, 9, 10, 12], fill=(250, 240, 220, 255))
+    d.point((8, 10), fill=(60, 60, 60, 255)); d.point((7, 11), fill=(60, 60, 60, 255)); d.point((9, 11), fill=(60, 60, 60, 255))
+    d.rectangle([7, 3, 9, 5], fill=(70, 70, 80, 255), outline=(30, 30, 35, 255))
+    d.line([(9, 3), (13, 3)], fill=(30, 30, 35, 255)); d.point((14, 2), fill=(170, 220, 255, 255)); d.point((14, 4), fill=(170, 220, 255, 255))
+    d.line([(5, 4), (6, 6)], fill=(30, 30, 35, 255))
+    out['it_spray'] = im
+    return out
+
+
 def tool_icons():
     icons = {}
     # hoe
@@ -1114,6 +1136,7 @@ def main():
         images['portrait'] = sheets['s5'].crop((2278, 138, 2552, 398)).convert('RGBA').resize((44 * R, 42 * R), Image.LANCZOS)
     native.add('portrait')
     images.update(tool_icons())
+    images.update(supply_icons())
     # procedural pixel art is drawn at game resolution: blow it up crisply
     for k in list(images):
         if k not in native:

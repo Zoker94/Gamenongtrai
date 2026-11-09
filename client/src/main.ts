@@ -1,6 +1,7 @@
 import './style.css';
 import { buildFarm, isTillable } from '../../shared/maps/farm.ts';
-import { CROPS, RIPE, key, stageProgress, type Plot } from '../../shared/rules.ts';
+import { CROPS, RIPE, SUPPLIES, hasPests, key, secsToRipe, totalProgress, type Plot } from '../../shared/rules.ts';
+import { isRainingAt } from '../../shared/weather.ts';
 import { drawAnchored, drawAt, loadAtlas } from './atlas.ts';
 import { Effects, drawScreenLight, swayFor } from './effects.ts';
 import { loadGround, saveGround } from './groundcache.ts';
@@ -54,7 +55,11 @@ const player = new Player(map.spawn.x * TILE + TILE / 2, map.spawn.y * TILE + TI
 const fx = new Effects(world);
 const weather = new Weather();
 const weatherEl = document.getElementById('weather') as HTMLElement;
-weather.onChange = (k) => { weatherEl.textContent = WEATHER_NAME[k]; weatherEl.dataset.k = k; if (document.getElementById('loading') === null) ui.toast(WEATHER_NAME[k], 1600); };
+weather.onChange = (k) => {
+  weatherEl.textContent = WEATHER_NAME[k]; weatherEl.dataset.k = k;
+  if (document.getElementById('loading') !== null) return;
+  ui.toast(isRainingAt(store.now()) ? `${WEATHER_NAME[k]} · cây được tưới tự động` : WEATHER_NAME[k], 2200);
+};
 player.turnaround = !!atlas.frames['pl2_0'];
 player.walkCycles = !!atlas.frames['pl3_0_8'];
 if (atlas.frames['pl4_0_w0']) {
@@ -72,6 +77,7 @@ store.onChange = () => { ui.update(store.st); ui.refresh(store.st); };
 store.onError = (m) => ui.toast(m);
 store.onNet = (on) => { ui.setNet(on); if (on) ui.toast('Đã kết nối máy chủ'); };
 ui.onBuy = (crop, n) => { if (store.act({ t: 'buy', crop, n })) ui.toast(`Đã mua ${n} hạt ${CROPS[crop].name}`); };
+ui.onBuyItem = (item, n) => { if (store.act({ t: 'buyItem', item, n })) ui.toast(`Đã mua ${n} ${SUPPLIES[item].name}`); };
 ui.onSell = (item, n) => {
   const have = store.st.inv[item] || 0;
   const k = Math.min(have, n);
@@ -127,6 +133,8 @@ function useTarget(t: Target) {
   if (slot.id === 'hoe') { if (store.act({ t: 'till', x: tx, y: ty })) { player.playAction('pl_hoe'); fx.burst(bx + bc / 2, by + bc - 4, 'soil', 8); } }
   else if (slot.id === 'can') { if (store.act({ t: 'water', x: tx, y: ty })) { player.playAction('pl_water'); fx.burst(bx + bc / 2, by + bc / 2, 'water', 12); } }
   else if (slot.id.startsWith('seed:')) store.act({ t: 'plant', x: tx, y: ty, crop: slot.id.slice(5) });
+  else if (slot.id === 'fert') { if (store.act({ t: 'fertilize', x: tx, y: ty })) { ui.toast('Đã bón phân', 900); fx.burst(bx + bc / 2, by + bc / 2, 'soil', 10); } }
+  else if (slot.id === 'spray') { if (store.act({ t: 'spray', x: tx, y: ty })) { ui.toast('Đã diệt sâu', 900); fx.burst(bx + bc / 2, by + bc / 2, 'water', 16); } }
   else if (p && p.c) ui.toast(`${CROPS[p.c].name}: chưa chín`, 900);
   else ui.toast('Chọn cuốc để xới đất, hạt giống để gieo', 1400);
 }
@@ -493,30 +501,53 @@ function render(time: number) {
       ctx.fillRect(sx - 0.5, sy - r, 1, r * 2);
     }
   }
-  // crop status: small markers on every plot + an info bubble on the targeted one
+  // crop status: a status bar above every plant (+ water / pest / fertilizer
+  // markers), crawling bugs on infested plants, info bubble on the targeted one
   {
     const now = store.now();
     for (const k in plots) {
       const p = plots[k];
-      if (!p.c || p.s >= RIPE) continue;
+      if (!p.c) continue;
       const i = k.indexOf(',');
       const [bx, by, bc] = plotRect(+k.slice(0, i), +k.slice(i + 1));
       if (bx < camX - 40 || bx > camX + vw + 40 || by < camY - 40 || by > camY + vh + 40) continue;
-      if (p.w) {
-        // growth progress bar along the bottom of the plot
-        const pr = stageProgress(p, now);
-        ctx.fillStyle = 'rgba(40,24,10,0.6)';
-        ctx.fillRect(bx + 4, by + bc - 4, bc - 8, 2.5);
-        ctx.fillStyle = '#8fd14f';
-        ctx.fillRect(bx + 4, by + bc - 4, (bc - 8) * pr, 2.5);
-      } else {
-        // needs water: little bobbing droplet
-        const dy = Math.sin(ts * 4 + bx) * 1.2;
-        const cx = bx + bc - 5, cy = by + 4 + dy;
+      const ripe = p.s >= RIPE, pest = hasPests(p, now), dry = !p.w && !ripe;
+      // status bar above the plant
+      const bw = bc - 6, bxx = bx + 3, byy = by - 6;
+      ctx.fillStyle = 'rgba(30,18,8,0.65)';
+      roundRect(bxx - 0.5, byy - 0.5, bw + 1, 3.5, 1.5); ctx.fill();
+      ctx.fillStyle = ripe ? '#ffd54a' : pest ? '#e0513f' : dry ? '#5aa9e6' : '#8fd14f';
+      const pr = totalProgress(p, now);
+      if (pr > 0) { roundRect(bxx, byy, Math.max(2.5, bw * pr), 2.5, 1.2); ctx.fill(); }
+      // markers on the left of the bar
+      let mx = bxx + 1;
+      const my = byy - 4 + Math.sin(ts * 4 + bx) * 0.8;
+      if (dry) {
         ctx.fillStyle = '#3f8fd1';
-        ctx.beginPath(); ctx.moveTo(cx, cy - 3.5); ctx.quadraticCurveTo(cx + 3, cy + 0.5, cx, cy + 2.5);
-        ctx.quadraticCurveTo(cx - 3, cy + 0.5, cx, cy - 3.5); ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.fillRect(cx - 1, cy - 0.5, 1, 1);
+        ctx.beginPath(); ctx.moveTo(mx, my - 3); ctx.quadraticCurveTo(mx + 2.6, my + 0.5, mx, my + 2.2);
+        ctx.quadraticCurveTo(mx - 2.6, my + 0.5, mx, my - 3); ctx.fill();
+        mx += 6;
+      }
+      if (pest) {
+        ctx.fillStyle = '#e0513f';
+        ctx.beginPath(); ctx.arc(mx, my, 2.2, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.fillRect(mx - 0.5, my - 1.6, 1, 2); ctx.fillRect(mx - 0.5, my + 0.9, 1, 0.8);
+        mx += 6;
+      }
+      if (p.f) {
+        ctx.fillStyle = '#6fbf3f';
+        ctx.beginPath(); ctx.ellipse(mx, my, 2.4, 1.4, -0.6, 0, Math.PI * 2); ctx.fill();
+      }
+      // bugs crawling on infested plants
+      if (pest) {
+        for (let b = 0; b < 3; b++) {
+          const a = ts * (1.3 + b * 0.4) + b * 2.1 + bx;
+          const ux = bx + bc / 2 + Math.cos(a) * (5 + b * 2), uy = by + bc * 0.45 + Math.sin(a * 1.3) * 5;
+          ctx.fillStyle = b === 1 ? '#6b3b16' : '#3d2b12';
+          ctx.beginPath(); ctx.ellipse(ux, uy, 1.6, 1.1, a, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#a7d34a';
+          ctx.fillRect(ux + Math.cos(a) * 1.4 - 0.4, uy + Math.sin(a) * 1.4 - 0.4, 0.8, 0.8);
+        }
       }
     }
     if (!ui.panelOpen && target.plot) {
@@ -530,13 +561,15 @@ function render(time: number) {
         title = def.name;
         if (p.s >= RIPE) { line = 'Đã chín · thu hoạch ngay!'; color = '#ffd54a'; }
         else {
-          const left = Math.max(0, Math.ceil((1 - stageProgress(p, now)) * def.stageSecs + (RIPE - 1 - p.s) * def.stageSecs));
+          const left = secsToRipe(p, now);
           const mm = Math.floor(left / 60), ss = left % 60;
           const tStr = mm ? `${mm} phút ${ss}s` : `${ss}s`;
           const stage = ['Hạt', 'Mầm', 'Đang lớn'][p.s] || '';
-          line = p.w ? `${stage} · chín sau ${tStr}` : `${stage} · cần tưới nước (còn ${tStr})`;
-          if (!p.w) color = '#bfe3ff';
+          if (hasPests(p, now)) { line = 'Bị sâu phá! Dùng thuốc trừ sâu'; color = '#ff8a7a'; }
+          else if (p.w) line = `${stage} · chín sau ${tStr}`;
+          else { line = `${stage} · cần tưới nước (còn ${tStr})`; color = '#bfe3ff'; }
         }
+        if (p.f && p.s < RIPE) title += ' · đã bón phân';
       }
       ctx.font = 'bold 6px system-ui, sans-serif';
       const w1 = ctx.measureText(title).width;

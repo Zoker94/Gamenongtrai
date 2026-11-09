@@ -1,4 +1,4 @@
-import { CROPS, CROP_IDS, type FarmState } from '../../shared/rules.ts';
+import { CROPS, CROP_IDS, SUPPLIES, type FarmState } from '../../shared/rules.ts';
 import { type Atlas, iconCanvas } from './atlas.ts';
 
 export interface Slot { id: string; icon: string; label: string; count?: number }
@@ -19,6 +19,7 @@ export class UI {
   private sig = '';
   private icons = new Map<string, HTMLCanvasElement>();
   onBuy: (crop: string, n: number) => void = () => {};
+  onBuyItem: (item: string, n: number) => void = () => {};
   onSell: (item: string, n: number) => void = () => {};
 
   constructor(atlas: Atlas) {
@@ -34,6 +35,7 @@ export class UI {
       if (!b) return;
       if (b.dataset.close != null) this.closePanel();
       else if (b.dataset.buy) this.onBuy(b.dataset.buy, +(b.dataset.n || 1));
+      else if (b.dataset.item) this.onBuyItem(b.dataset.item, +(b.dataset.n || 1));
       else if (b.dataset.sell) this.onSell(b.dataset.sell, +(b.dataset.n || 1));
     });
   }
@@ -64,7 +66,7 @@ export class UI {
   update(st: FarmState) {
     this.coins.innerHTML = `<i class="coin"></i>${st.coins}`;
     const seeds = CROP_IDS.filter((c) => st.inv['seed:' + c]);
-    const sig = seeds.map((c) => c + st.inv['seed:' + c]).join('|');
+    const sig = seeds.map((c) => c + st.inv['seed:' + c]).join('|') + `|f${st.inv.fert || 0}|s${st.inv.spray || 0}`;
     if (sig === this.sig && this.slots.length) return;
     const prevId = this.current?.id;
     this.sig = sig;
@@ -72,6 +74,8 @@ export class UI {
       { id: 'hoe', icon: 'tool_hoe', label: 'Cuốc' },
       { id: 'can', icon: 'tool_can', label: 'Bình tưới' },
       { id: 'hand', icon: 'pc_tomato', label: 'Thu hoạch' },
+      { id: 'fert', icon: 'it_fert', label: 'Phân bón (cây lớn nhanh 40%, thu hoạch x2)', count: st.inv.fert || 0 },
+      { id: 'spray', icon: 'it_spray', label: 'Thuốc trừ sâu', count: st.inv.spray || 0 },
       ...seeds.map((c) => ({ id: 'seed:' + c, icon: this.atlas.frames[`cp_${c}_bag`] ? `cp_${c}_bag` : 'pc_' + c, label: 'Hạt ' + CROPS[c].name, count: st.inv['seed:' + c] })),
     ];
     this.hotbar.replaceChildren(...this.slots.map((s, i) => {
@@ -118,7 +122,12 @@ export class UI {
         <button data-buy="${c}" data-n="1" ${st.coins < d.seedPrice ? 'disabled' : ''}>${d.seedPrice}<i class="coin"></i></button>
         <button data-buy="${c}" data-n="5" ${st.coins < d.seedPrice * 5 ? 'disabled' : ''}>×5</button></div>`;
     }).join('');
-    this.showPanel('Cửa hàng hạt giống', rows);
+    const supplies = Object.entries(SUPPLIES).map(([id, d]) => `<div class="row"><span class="ic" data-ic="it_${id}"></span>
+        <span class="nm">${d.name}<small>${id === 'fert' ? 'Lớn nhanh 40% · thu hoạch gấp đôi' : 'Diệt sâu, cây lớn tiếp'}</small></span>
+        <span class="have">${st.inv[id] || 0}</span>
+        <button data-item="${id}" data-n="1" ${st.coins < d.price ? 'disabled' : ''}>${d.price}<i class="coin"></i></button>
+        <button data-item="${id}" data-n="5" ${st.coins < d.price * 5 ? 'disabled' : ''}>×5</button></div>`).join('');
+    this.showPanel('Cửa hàng', '<h3>Hạt giống</h3>' + rows + '<h3>Vật tư</h3>' + supplies);
   }
 
   openShip(st: FarmState) {
@@ -152,7 +161,10 @@ export class UI {
       <h3>Nông sản</h3>
       <div class="grid">${crops.length ? crops.map((c) => cell(c, false)).join('') : '<p class="empty">Chưa có nông sản.</p>'}</div>
       <h3>Hạt giống</h3>
-      <div class="grid">${seeds.length ? seeds.map((c) => cell(c, true)).join('') : '<p class="empty">Hết hạt giống.</p>'}</div>`;
+      <div class="grid">${seeds.length ? seeds.map((c) => cell(c, true)).join('') : '<p class="empty">Hết hạt giống.</p>'}</div>
+      <h3>Vật tư</h3>
+      <div class="grid">${Object.entries(SUPPLIES).map(([id, d]) => `<div class="cell"><span class="ic" data-ic="it_${id}"></span>
+        <b>${st.inv[id] || 0}</b><small>${d.name}</small></div>`).join('')}</div>`;
     this.showPanel('Kho nhà', body);
   }
 

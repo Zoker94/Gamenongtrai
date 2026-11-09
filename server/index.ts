@@ -206,8 +206,9 @@ wss.on('connection', async (ws, req) => {
       send(ws, { t: 'err', seq: msg.seq, msg: err, st: sess.st, now });
       return;
     }
-    send(ws, { t: 'ok', seq: msg.seq, v: sess.st.v });
-    for (const other of sess.sockets) if (other !== ws) send(other, { t: 'state', st: sess.st, now });
+    // everyone (including the sender) gets the authoritative state: rain / pest
+    // timestamps are decided here, the client only predicted them
+    for (const s2 of sess.sockets) send(s2, { t: 'state', st: sess.st, now });
     scheduleSave(id, sess);
   });
 

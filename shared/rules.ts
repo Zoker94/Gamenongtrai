@@ -1,5 +1,6 @@
 // Game rules shared by client (prediction / offline mode) and server (authority).
 // Keep this file free of DOM / Node APIs.
+import { firstRainBetween } from './weather.ts';
 
 export interface CropDef {
   id: string;
@@ -31,7 +32,21 @@ export interface Plot {
   s: number;
   /** ms timestamp when last watered for the current stage, 0 = dry */
   w: number;
+  /** ms timestamp the plot became dry (planted / last stage finished): rain after it waters the plot */
+  d?: number;
+  /** fertilized: stages grow 40% faster, +1 crop at harvest */
+  f?: number;
+  /** pests: ms timestamp they show up during the current stage (0/absent = none). Growth is
+   *  frozen from that moment until the plot is sprayed. */
+  q?: number;
 }
+
+/** Shop items besides seeds */
+export const SUPPLIES: Record<string, { name: string; price: number }> = {
+  fert: { name: 'Phân bón', price: 15 },
+  spray: { name: 'Thuốc trừ sâu', price: 20 },
+};
+const PEST_CHANCE = 0.22;
 
 export interface FarmState {
   v: number; // bumps on every change
@@ -47,7 +62,10 @@ export type Action =
   | { t: 'harvest'; x: number; y: number }
   | { t: 'clear'; x: number; y: number }
   | { t: 'sell'; item: string; n: number }
-  | { t: 'buy'; crop: string; n: number };
+  | { t: 'fertilize'; x: number; y: number }
+  | { t: 'spray'; x: number; y: number }
+  | { t: 'buy'; crop: string; n: number }
+  | { t: 'buyItem'; item: string; n: number };
 
 export const key = (x: number, y: number) => x + ',' + y;
 
@@ -56,31 +74,76 @@ export interface StarterPlot { x: number; y: number; c: string; s: number }
 /** A new farm. The map provides a few plots already growing so it never looks bare. */
 export function newFarm(starter: StarterPlot[] = []): FarmState {
   const plots: Record<string, Plot> = {};
-  for (const p of starter) plots[key(p.x, p.y)] = { c: p.c, s: p.s, w: 0 };
-  return { v: 1, coins: 100, inv: { 'seed:rice': 6, 'seed:carrot': 6, 'seed:tomato': 3 }, plots };
+  for (const p of starter) plots[key(p.x, p.y)] = { c: p.c, s: p.s, w: 0, d: 0 };
+  return { v: 1, coins: 100, inv: { 'seed:rice': 6, 'seed:carrot': 6, 'seed:tomato': 3, fert: 3, spray: 2 }, plots };
 }
 
-/** Advance growth lazily from timestamps. Returns true when the plot changed. */
-export function growPlot(p: Plot, now: number): boolean {
-  if (!p.c || p.s >= RIPE || !p.w) return false;
-  const def = CROPS[p.c];
-  if (!def) return false;
-  if (now - p.w < def.stageSecs * 1000) return false;
-  p.s++;
-  p.w = 0; // each stage needs fresh water
-  return true;
+/** ms one growth stage takes for this plot */
+export const stageMs = (p: Plot) => CROPS[p.c].stageSecs * 1000 * (p.f ? 0.6 : 1);
+
+/** deterministic 0..1 from a plot key and a timestamp */
+function rnd(k: string, t: number) {
+  let h = (t / 1000) | 0;
+  for (let i = 0; i < k.length; i++) h = Math.imul(h ^ k.charCodeAt(i), 0x9e3779b1);
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b); h ^= h >>> 13;
+  return (h >>> 0) / 4294967296;
+}
+
+/** Start a stage: the plot is watered at `t`; maybe pests show up later in it. */
+function startStage(p: Plot, k: string, t: number) {
+  p.w = t;
+  p.q = rnd(k, t) < PEST_CHANCE ? t + stageMs(p) * (0.3 + rnd(k + '!', t) * 0.4) : 0;
+}
+
+export const hasPests = (p: Plot, now: number) => !!p.q && p.q <= now && p.s < RIPE;
+
+/** Advance growth lazily from timestamps (rain waters dry crops, pests freeze growth).
+ *  Deterministic, so client and server reach the same state. Returns true when changed. */
+export function growPlot(p: Plot, now: number, k = ''): boolean {
+  if (!p.c || p.s >= RIPE || !CROPS[p.c]) return false;
+  let changed = false;
+  for (let guard = 0; guard < 8 && p.s < RIPE; guard++) {
+    if (!p.w) {
+      if (!p.d) { p.d = now; changed = true; break; }   // legacy / starter plot: dry from now on
+      const r = firstRainBetween(p.d, now);
+      if (!r) break;                                    // no rain since it dried
+      startStage(p, k, r);
+      changed = true;
+    }
+    if (p.q && p.q <= now) break;          // pests: frozen until sprayed
+    const end = p.w + stageMs(p);
+    if (now < end) break;
+    p.s++; p.w = 0; p.q = 0; p.d = end;    // each stage needs fresh water
+    changed = true;
+  }
+  return changed;
 }
 
 export function growAll(st: FarmState, now: number): boolean {
   let changed = false;
-  for (const k in st.plots) if (growPlot(st.plots[k], now)) changed = true;
+  for (const k in st.plots) if (growPlot(st.plots[k], now, k)) changed = true;
   return changed;
 }
 
-/** Progress (0..1) of the current stage, for UI. */
+/** Progress (0..1) of the current stage, for UI (frozen while pests are on it). */
 export function stageProgress(p: Plot, now: number): number {
   if (!p.c || !p.w || p.s >= RIPE) return 0;
-  return Math.min(1, (now - p.w) / (CROPS[p.c].stageSecs * 1000));
+  const t = p.q && p.q <= now ? p.q : now;
+  return Math.min(1, (t - p.w) / stageMs(p));
+}
+
+/** Whole-crop progress 0..1 (for the status bar). */
+export function totalProgress(p: Plot, now: number): number {
+  if (!p.c) return 0;
+  if (p.s >= RIPE) return 1;
+  return (p.s + stageProgress(p, now)) / RIPE;
+}
+
+/** Seconds of growing left until ripe (assuming it is watered every stage). */
+export function secsToRipe(p: Plot, now: number): number {
+  if (!p.c || p.s >= RIPE) return 0;
+  const ms = stageMs(p);
+  return Math.ceil(((1 - stageProgress(p, now)) * ms + (RIPE - 1 - p.s) * ms) / 1000);
 }
 
 const add = (inv: Record<string, number>, item: string, n: number) => {
@@ -103,12 +166,12 @@ export function applyAction(
     if (!Number.isInteger(a.x) || !Number.isInteger(a.y)) return 'Ô không hợp lệ';
     const k = key(a.x, a.y);
     const p = st.plots[k];
-    if (p) growPlot(p, now);
+    if (p) growPlot(p, now, k);
     switch (a.t) {
       case 'till':
         if (p) return 'Đất đã được xới';
         if (!canTill(a.x, a.y)) return 'Không thể xới ở đây';
-        st.plots[k] = { c: '', s: 0, w: 0 };
+        st.plots[k] = { c: '', s: 0, w: 0, d: 0 };
         break;
       case 'plant': {
         if (!p) return 'Cần xới đất trước';
@@ -117,20 +180,42 @@ export function applyAction(
         const seed = 'seed:' + a.crop;
         if (!st.inv[seed]) return 'Hết hạt giống';
         add(st.inv, seed, -1);
-        p.c = a.crop; p.s = 0; p.w = 0;
+        const wasWet = p.w;
+        p.c = a.crop; p.s = 0; p.w = 0; p.f = 0; p.q = 0; p.d = now;
+        if (wasWet) startStage(p, k, now);   // seeds sown into already watered soil
+        growPlot(p, now, k);
         break;
       }
       case 'water':
         if (!p) return 'Chưa có đất xới';
         if (p.w) return 'Đã tưới rồi';
         if (p.c && p.s >= RIPE) return 'Cây đã chín, hãy thu hoạch';
-        p.w = now;
+        if (p.c) startStage(p, k, now); else p.w = now;
+        break;
+      case 'fertilize':
+        if (!p || !p.c) return 'Chỉ bón phân cho ô đang có cây';
+        if (p.s >= RIPE) return 'Cây đã chín, hãy thu hoạch';
+        if (p.f) return 'Cây đã được bón phân';
+        if (!st.inv.fert) return 'Hết phân bón';
+        add(st.inv, 'fert', -1);
+        // keep the progress of the running stage, then grow faster
+        if (p.w) { const pr = stageProgress(p, now); const q = p.q && p.q > now ? (p.q - p.w) / stageMs(p) : -1;
+          p.f = 1; p.w = now - pr * stageMs(p); if (q >= 0) p.q = p.w + q * stageMs(p); }
+        else p.f = 1;
+        break;
+      case 'spray':
+        if (!p || !p.c) return 'Không có cây để phun thuốc';
+        if (!hasPests(p, now)) return 'Cây không bị sâu';
+        if (!st.inv.spray) return 'Hết thuốc trừ sâu';
+        add(st.inv, 'spray', -1);
+        p.w += now - (p.q as number);        // time lost to pests does not count
+        p.q = 0;
         break;
       case 'harvest':
         if (!p || !p.c) return 'Không có gì để thu hoạch';
         if (p.s < RIPE) return 'Cây chưa chín';
-        add(st.inv, p.c, 1);
-        p.c = ''; p.s = 0; p.w = 0;
+        add(st.inv, p.c, p.f ? 2 : 1);
+        p.c = ''; p.s = 0; p.w = 0; p.f = 0; p.q = 0; p.d = 0;
         break;
       case 'clear':
         if (!p) return 'Không có gì để dọn';
@@ -152,6 +237,13 @@ export function applyAction(
     if (st.coins < def.seedPrice * n) return 'Không đủ tiền';
     st.coins -= def.seedPrice * n;
     add(st.inv, 'seed:' + a.crop, n);
+  } else if (a.t === 'buyItem') {
+    const def = SUPPLIES[a.item];
+    const n = Math.max(0, a.n | 0);
+    if (!def || !n) return 'Không mua được';
+    if (st.coins < def.price * n) return 'Không đủ tiền';
+    st.coins -= def.price * n;
+    add(st.inv, a.item, n);
   } else {
     return 'Hành động lạ';
   }
