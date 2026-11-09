@@ -336,29 +336,30 @@ const plotRnd = (seed: number, i: number) => { const v = Math.sin(seed * 12.9898
 /** The whole planting grid is pre-rendered into one offscreen canvas and only
  *  redrawn when a plot changes state (or the zoom changes): drawing 32 clipped
  *  rounded patches every frame was the main cost near the garden. */
-let plotLayer: HTMLCanvasElement | null = null, plotSig = '', plotScale = 0;
+let plotLayer: HTMLCanvasElement | null = null, plotScale = 0;
+let plotCells: number[] = [];               // state of each cell as last drawn into the layer
 const PL_PAD = 2;
 function plotLayerFor(plots: Record<string, { w?: number; c?: string }>, scale: number): HTMLCanvasElement {
-  let sig = '';
-  for (let r = 0; r < PG!.rows; r++) for (let c = 0; c < PG!.cols; c++) {
-    const p = plots[key(c, r)]; sig += p ? (p.w ? '2' : '1') : '0';
-  }
-  if (plotLayer && sig === plotSig && scale === plotScale) return plotLayer;
   const W = PG!.cols * PG!.cell + PL_PAD * 2, H = PG!.rows * PG!.cell + PL_PAD * 2;
   if (!plotLayer || scale !== plotScale) {
     plotLayer = document.createElement('canvas');
     plotLayer.width = Math.ceil(W * scale); plotLayer.height = Math.ceil(H * scale);
+    plotScale = scale; plotCells = [];
   }
   const g = plotLayer.getContext('2d')!;
-  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, plotLayer.width, plotLayer.height);
   g.setTransform(scale, 0, 0, scale, (PL_PAD - PG!.x) * scale, (PL_PAD - PG!.y) * scale);
   g.imageSmoothingEnabled = false;
+  // only the cells whose state changed are cleared and redrawn (each patch
+  // stays inside its own cell, so neighbours are untouched)
   let i = 0;
-  for (let r = 0; r < PG!.rows; r++) for (let c = 0; c < PG!.cols; c++) {
+  for (let r = 0; r < PG!.rows; r++) for (let c = 0; c < PG!.cols; c++, i++) {
+    const p = plots[key(c, r)], st = p ? (p.w ? 2 : 1) : 0;
+    if (plotCells[i] === st) continue;
     const [bx, by, bc] = plotRect(c, r);
-    drawPlot(g, bx, by, bc, +sig[i++], c * 31 + r * 17);
+    g.clearRect(bx, by, bc, bc);
+    drawPlot(g, bx, by, bc, st, c * 31 + r * 17);
+    plotCells[i] = st;
   }
-  plotSig = sig; plotScale = scale;
   return plotLayer;
 }
 /** soft golden glow behind ripe crops, made once */
