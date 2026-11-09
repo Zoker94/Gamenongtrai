@@ -340,3 +340,28 @@ body.touch #stick { background: rgba(255, 240, 200, .18); border: 3px solid rgba
   .box:has(.wardrobe) header { padding-bottom: 4px; }
 }
 .box:has(.wardrobe) { width: min(620px, calc(100vw - 24px)); }
+/* money lives in the character tab now */
+#coins { display: none; }
+.wardrobe .money { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; border-radius: 12px;
+  background: linear-gradient(#fff3c2, #f7dc8a); border: 2px solid #c79a2e; font-weight: 700; color: #6b4a14; }
+.wardrobe .money b { font-size: 17px; color: #7a4a00; }
+.needs { display: grid; gap: 5px; }
+.need { display: grid; grid-template-columns: 96px 1fr 40px; align-items: center; gap: 8px; }
+.need .nm { display: grid; font-weight: 700; font-size: 13px; }
+.need .nm small { font-size: 11px; color: #8a6a44; }
+.need .bar { height: 10px; border-radius: 6px; background: rgba(74, 44, 23, .18); border: 1px solid rgba(74, 44, 23, .35); overflow: hidden; }
+.need .bar i { display: block; height: 100%; border-radius: 5px; }
+.need.hunger .bar i { background: linear-gradient(#f6b46a, #d9772b); }
+.need.thirst .bar i { background: linear-gradient(#8cc8f2, #3f8fd1); }
+.need.tired .bar i { background: linear-gradient(#c7a6e6, #8a5cc0); }
+.need b { font-size: 12px; text-align: right; color: #6b4a2a; }
+.need.bad .nm small, .need.bad b { color: #b23b2c; }
+@media (max-height: 500px) {
+  .wardrobe .money { padding: 3px 10px; }
+  .wardrobe .money b { font-size: 15px; }
+  .needs { gap: 2px; grid-template-columns: 1fr 1fr 1fr; column-gap: 10px; }
+  .need { grid-template-columns: 1fr 30px; gap: 2px 4px; }
+  .need .nm { grid-column: 1 / -1; display: flex; gap: 6px; align-items: baseline; font-size: 12px; }
+  .need .bar { height: 8px; }
+  .need b { font-size: 11px; }
+}

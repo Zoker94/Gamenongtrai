@@ -65,6 +65,24 @@ export interface FarmState {
   inv: Record<string, number>; // 'seed:carrot', 'carrot', ...
   plots: Record<string, Plot>; // key "x,y"
   wear?: Record<string, string>; // equipped clothing: slot -> item id (owned as inv['wear:<id>'])
+  n?: Needs;                      // hunger / thirst / fatigue, as of time `at`
+}
+
+/** Character needs, 0 = fine .. 100 = worst. Stored as a snapshot at `at`
+ *  and advanced deterministically from timestamps (same on client and server). */
+export interface Needs { h: number; t: number; f: number; at: number }
+export const NEEDS = {
+  hungerPerMin: 0.7,     // 0 -> 100 in about 2.4 h
+  thirstPerMin: 1,       // 0 -> 100 in about 1.7 h
+  restPerMin: 1.5,       // fatigue recovers while not working
+  workFatigue: 1.5,      // each farming action (till, water, harvest...)
+};
+const clamp100 = (v: number) => Math.max(0, Math.min(100, v));
+export function needsAt(st: FarmState, now: number): Needs {
+  const n = st.n;
+  if (!n) return { h: 0, t: 0, f: 0, at: now };
+  const m = Math.max(0, now - n.at) / 60000;
+  return { h: clamp100(n.h + m * NEEDS.hungerPerMin), t: clamp100(n.t + m * NEEDS.thirstPerMin), f: clamp100(n.f - m * NEEDS.restPerMin), at: now };
 }
 
 export type Action =
@@ -89,7 +107,7 @@ export interface StarterPlot { x: number; y: number; c: string; s: number }
 export function newFarm(starter: StarterPlot[] = []): FarmState {
   const plots: Record<string, Plot> = {};
   for (const p of starter) plots[key(p.x, p.y)] = { c: p.c, s: p.s, w: 0, d: 0 };
-  return { v: 1, coins: 100, inv: { 'seed:rice': 6, 'seed:carrot': 6, 'seed:tomato': 3, fert: 3, spray: 2 }, plots };
+  return { v: 1, coins: 100, n: { h: 0, t: 0, f: 0, at: Date.now() }, inv: { 'seed:rice': 6, 'seed:carrot': 6, 'seed:tomato': 3, fert: 3, spray: 2 }, plots };
 }
 
 /** ms one growth stage takes for this plot */
@@ -268,6 +286,11 @@ export function applyAction(
     delete st.wear[a.slot];
   } else {
     return 'Hành động lạ';
+  }
+  if ('x' in a) {                         // farm work tires the character
+    const n = needsAt(st, now);
+    n.f = clamp100(n.f + NEEDS.workFatigue);
+    st.n = n;
   }
   st.v++;
   return null;

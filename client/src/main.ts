@@ -12,7 +12,7 @@ import { Store } from './net.ts';
 import { enterGame, logout } from './login.ts';
 import { Player } from './player.ts';
 import { FARM_NPCS, Npc } from './npc.ts';
-import { UI } from './ui.ts';
+import { UI, vnd } from './ui.ts';
 import { TILE, World } from './world.ts';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
@@ -94,7 +94,7 @@ ui.onBuyItem = (item, n) => { if (store.act({ t: 'buyItem', item, n })) ui.toast
 ui.onSell = (item, n) => {
   const have = store.st.inv[item] || 0;
   const k = Math.min(have, n);
-  if (store.act({ t: 'sell', item, n })) ui.toast(`+${k * CROPS[item].sellPrice} xu`);
+  if (store.act({ t: 'sell', item, n })) ui.toast(`+${vnd(k * CROPS[item].sellPrice)}`);
 };
 ui.update(store.st);
 ui.setNet(false);
@@ -281,7 +281,8 @@ function update(dt: number) {
       player.target = null;
       player.faceToward(cx, cy);
       useTarget(t);
-    } else {
+    } else if (!input.tapTouch) {
+      // mouse: click far away to walk there. On phones moving is joystick only.
       player.target = { x: w.x, y: w.y + 4 };
     }
   }

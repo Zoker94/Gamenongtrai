@@ -1,7 +1,7 @@
 // Weather schedule shared by client (visuals) and server (rain waters crops).
 // A slot's weather is a pure function of time, so everyone agrees on it.
 export type Kind = 'sun' | 'cloud' | 'rain' | 'storm' | 'fog';
-export const SLOT_MS = 3 * 60 * 1000; // weather changes every 3 minutes
+export const SLOT_MS = 5 * 60 * 1000; // weather changes every 5 minutes
 
 export function weatherForSlot(slot: number): Kind {
   // murmur3 finalizer: well mixed even for consecutive slot numbers

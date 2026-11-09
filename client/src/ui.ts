@@ -1,9 +1,12 @@
-import { CROPS, CROP_IDS, SUPPLIES, WEAR_SLOTS, WEARABLES, type FarmState } from '../../shared/rules.ts';
+import { CROPS, CROP_IDS, SUPPLIES, WEAR_SLOTS, WEARABLES, needsAt, type FarmState } from '../../shared/rules.ts';
 import { type Atlas, iconCanvas } from './atlas.ts';
 
 export interface Slot { id: string; icon: string; label: string; count?: number }
 
 const $ = (id: string) => document.getElementById(id)!;
+/** money is shown in Vietnamese dong: 1 in-game coin = 1.000 ₫ */
+export const vnd = (n: number) => (n * 1000).toLocaleString('vi-VN') + ' ₫';
+const needLabel = (v: number, words: [string, string, string, string]) => words[v < 25 ? 0 : v < 50 ? 1 : v < 75 ? 2 : 3];
 
 export class UI {
   slots: Slot[] = [];
@@ -127,17 +130,17 @@ export class UI {
     const rows = CROP_IDS.map((c) => {
       const d = CROPS[c];
       return `<div class="row"><span class="ic" data-ic="${this.atlas.frames[`cp_${c}_item`] ? `cp_${c}_item` : `pc_${c}`}"></span>
-        <span class="nm">${d.name}<small>${d.stageSecs * 3}s · bán ${d.sellPrice}<i class="coin"></i></small></span>
+        <span class="nm">${d.name}<small>${d.stageSecs * 3}s · bán ${vnd(d.sellPrice)}</small></span>
         <span class="have">${st.inv['seed:' + c] || 0}</span>
-        <button data-buy="${c}" data-n="1" ${st.coins < d.seedPrice ? 'disabled' : ''}>${d.seedPrice}<i class="coin"></i></button>
+        <button data-buy="${c}" data-n="1" ${st.coins < d.seedPrice ? 'disabled' : ''}>${vnd(d.seedPrice)}</button>
         <button data-buy="${c}" data-n="5" ${st.coins < d.seedPrice * 5 ? 'disabled' : ''}>×5</button></div>`;
     }).join('');
     const supplies = Object.entries(SUPPLIES).map(([id, d]) => `<div class="row"><span class="ic" data-ic="it_${id}"></span>
         <span class="nm">${d.name}<small>${id === 'fert' ? 'Lớn nhanh 40% · thu hoạch gấp đôi' : 'Diệt sâu, cây lớn tiếp'}</small></span>
         <span class="have">${st.inv[id] || 0}</span>
-        <button data-item="${id}" data-n="1" ${st.coins < d.price ? 'disabled' : ''}>${d.price}<i class="coin"></i></button>
+        <button data-item="${id}" data-n="1" ${st.coins < d.price ? 'disabled' : ''}>${vnd(d.price)}</button>
         <button data-item="${id}" data-n="5" ${st.coins < d.price * 5 ? 'disabled' : ''}>×5</button></div>`).join('');
-    this.showPanel(this.shopTitle, `<p class="sub">Bạn có <i class="coin"></i>${st.coins}</p><h3>Hạt giống</h3>` + rows + '<h3>Vật tư</h3>' + supplies);
+    this.showPanel(this.shopTitle, `<p class="sub">Bạn có ${vnd(st.coins)}</p><h3>Hạt giống</h3>` + rows + '<h3>Vật tư</h3>' + supplies);
   }
 
   openShip(st: FarmState) {
@@ -145,7 +148,7 @@ export class UI {
     const items = CROP_IDS.filter((c) => st.inv[c]);
     const rows = items.length
       ? items.map((c) => `<div class="row"><span class="ic" data-ic="${this.atlas.frames[`cp_${c}_item`] ? `cp_${c}_item` : `pc_${c}`}"></span>
-          <span class="nm">${CROPS[c].name}<small>${CROPS[c].sellPrice}<i class="coin"></i> / cái</small></span>
+          <span class="nm">${CROPS[c].name}<small>${vnd(CROPS[c].sellPrice)} / cái</small></span>
           <span class="have">${st.inv[c]}</span>
           <button data-sell="${c}" data-n="1">Bán 1</button>
           <button data-sell="${c}" data-n="999">Bán hết</button></div>`).join('')
@@ -167,7 +170,7 @@ export class UI {
     const crops = CROP_IDS.filter((c) => st.inv[c]);
     const seeds = CROP_IDS.filter((c) => st.inv['seed:' + c]);
     const total = crops.reduce((a, c) => a + st.inv[c], 0) + seeds.reduce((a, c) => a + st.inv['seed:' + c], 0);
-    const body = `<p class="sub">Tổng: ${total} món · <i class="coin"></i>${st.coins}</p>
+    const body = `<p class="sub">Tổng: ${total} món · ${vnd(st.coins)}</p>
       <h3>Nông sản</h3>
       <div class="grid">${crops.length ? crops.map((c) => cell(c, false)).join('') : '<p class="empty">Chưa có nông sản.</p>'}</div>
       <h3>Hạt giống</h3>
@@ -198,6 +201,13 @@ export class UI {
         <span class="nm">${sl.name}<small>${def ? def.name : 'Trống'}</small></span>
         ${def ? `<button data-unequip="${sl.id}">Tháo</button>` : ''}</div>`;
     }).join('');
+    const nd = needsAt(st, Date.now());
+    const bar = (nm: string, v: number, words: [string, string, string, string], cls: string) =>
+      `<div class="need ${cls}${v >= 75 ? ' bad' : ''}"><span class="nm">${nm}<small>${needLabel(v, words)}</small></span>
+        <span class="bar"><i style="width:${Math.round(v)}%"></i></span><b>${Math.round(v)}%</b></div>`;
+    const needs = bar('Đói', nd.h, ['No bụng', 'Hơi đói', 'Đói', 'Rất đói'], 'hunger')
+      + bar('Khát', nd.t, ['Đủ nước', 'Hơi khát', 'Khát', 'Rất khát'], 'thirst')
+      + bar('Mệt mỏi', nd.f, ['Khỏe khoắn', 'Hơi mệt', 'Mệt', 'Kiệt sức'], 'tired');
     const owned = Object.keys(WEARABLES).filter((id) => st.inv['wear:' + id] && (!WEARABLES[id].gender || WEARABLES[id].gender === me.gender));
     const items = owned.length
       ? owned.map((id) => {
@@ -210,7 +220,10 @@ export class UI {
         <div class="me"><span class="fig" data-ic="${me.sprite}_0_i0" data-sz="96"></span>
           <b>${me.name}</b><small>@${me.username}</small>
           <button class="out" data-logout>Đăng xuất</button></div>
-        <div class="wear-r"><h3>Đang mặc</h3><div class="wslots">${slots}</div>
+        <div class="wear-r">
+          <div class="money"><span>Tiền</span><b>${vnd(st.coins)}</b></div>
+          <h3>Trạng thái</h3><div class="needs">${needs}</div>
+          <h3>Đang mặc</h3><div class="wslots">${slots}</div>
           <h3>Tủ đồ</h3><div class="grid">${items}</div></div>
       </div>`;
     this.showPanel('Nhân vật', body);

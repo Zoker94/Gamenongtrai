@@ -13,6 +13,8 @@ export class Input {
   slotPressed = -1;
   slotDelta = 0;
   tap: { x: number; y: number } | null = null;
+  /** the last tap came from a finger (no tap-to-walk on touch screens) */
+  tapTouch = false;
   hover: { x: number; y: number } | null = null;
   readonly touch: boolean;
 
@@ -37,6 +39,7 @@ export class Input {
     canvas.addEventListener('pointerdown', (e) => {
       const [x, y] = toLogical(e.clientX, e.clientY);
       this.tap = { x, y };
+      this.tapTouch = e.pointerType !== 'mouse';
     });
     canvas.addEventListener('pointermove', (e) => {
       if (e.pointerType === 'mouse') { const [x, y] = toLogical(e.clientX, e.clientY); this.hover = { x, y }; }
