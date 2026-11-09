@@ -1,6 +1,6 @@
 import './style.css';
 import { buildFarm, isTillable } from '../../shared/maps/farm.ts';
-import { CROPS, RIPE, key, type Plot } from '../../shared/rules.ts';
+import { CROPS, RIPE, key, stageProgress, type Plot } from '../../shared/rules.ts';
 import { drawAnchored, drawAt, loadAtlas } from './atlas.ts';
 import { Effects, drawScreenLight, swayFor } from './effects.ts';
 import { loadGround, saveGround } from './groundcache.ts';
@@ -491,6 +491,72 @@ function render(time: number) {
       ctx.fillStyle = `rgba(255,250,210,${a * 0.6})`;
       ctx.fillRect(sx - r, sy - 0.5, r * 2, 1);
       ctx.fillRect(sx - 0.5, sy - r, 1, r * 2);
+    }
+  }
+  // crop status: small markers on every plot + an info bubble on the targeted one
+  {
+    const now = store.now();
+    for (const k in plots) {
+      const p = plots[k];
+      if (!p.c || p.s >= RIPE) continue;
+      const i = k.indexOf(',');
+      const [bx, by, bc] = plotRect(+k.slice(0, i), +k.slice(i + 1));
+      if (bx < camX - 40 || bx > camX + vw + 40 || by < camY - 40 || by > camY + vh + 40) continue;
+      if (p.w) {
+        // growth progress bar along the bottom of the plot
+        const pr = stageProgress(p, now);
+        ctx.fillStyle = 'rgba(40,24,10,0.6)';
+        ctx.fillRect(bx + 4, by + bc - 4, bc - 8, 2.5);
+        ctx.fillStyle = '#8fd14f';
+        ctx.fillRect(bx + 4, by + bc - 4, (bc - 8) * pr, 2.5);
+      } else {
+        // needs water: little bobbing droplet
+        const dy = Math.sin(ts * 4 + bx) * 1.2;
+        const cx = bx + bc - 5, cy = by + 4 + dy;
+        ctx.fillStyle = '#3f8fd1';
+        ctx.beginPath(); ctx.moveTo(cx, cy - 3.5); ctx.quadraticCurveTo(cx + 3, cy + 0.5, cx, cy + 2.5);
+        ctx.quadraticCurveTo(cx - 3, cy + 0.5, cx, cy - 3.5); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.fillRect(cx - 1, cy - 0.5, 1, 1);
+      }
+    }
+    if (!ui.panelOpen && target.plot) {
+      const p = plots[key(target.x, target.y)];
+      const [bx, by, bc] = plotRect(target.x, target.y);
+      let title = '', line = '', color = '#fff6dc';
+      if (!p) { title = 'Đất trống'; line = 'Dùng cuốc để xới đất'; }
+      else if (!p.c) { title = 'Đất đã xới'; line = p.w ? 'Đã tưới · chọn hạt để gieo' : 'Chọn hạt giống để gieo'; }
+      else {
+        const def = CROPS[p.c];
+        title = def.name;
+        if (p.s >= RIPE) { line = 'Đã chín · thu hoạch ngay!'; color = '#ffd54a'; }
+        else {
+          const left = Math.max(0, Math.ceil((1 - stageProgress(p, now)) * def.stageSecs + (RIPE - 1 - p.s) * def.stageSecs));
+          const mm = Math.floor(left / 60), ss = left % 60;
+          const tStr = mm ? `${mm} phút ${ss}s` : `${ss}s`;
+          const stage = ['Hạt', 'Mầm', 'Đang lớn'][p.s] || '';
+          line = p.w ? `${stage} · chín sau ${tStr}` : `${stage} · cần tưới nước (còn ${tStr})`;
+          if (!p.w) color = '#bfe3ff';
+        }
+      }
+      ctx.font = 'bold 6px system-ui, sans-serif';
+      const w1 = ctx.measureText(title).width;
+      ctx.font = '5px system-ui, sans-serif';
+      const w2 = ctx.measureText(line).width;
+      const bw = Math.max(w1, w2) + 8, bh = 16;
+      const cx = bx + bc / 2;
+      let tx = cx - bw / 2;
+      tx = Math.max(camX + 2, Math.min(camX + vw - bw - 2, tx));
+      const ty = by - bh - 6;
+      ctx.fillStyle = 'rgba(40,24,10,0.82)';
+      roundRect(tx, ty, bw, bh, 3); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(cx - 3, ty + bh); ctx.lineTo(cx + 3, ty + bh); ctx.lineTo(cx, ty + bh + 3); ctx.fill();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+      ctx.font = 'bold 6px system-ui, sans-serif';
+      ctx.fillStyle = '#fff6dc';
+      ctx.fillText(title, tx + bw / 2, ty + 7);
+      ctx.font = '5px system-ui, sans-serif';
+      ctx.fillStyle = color;
+      ctx.fillText(line, tx + bw / 2, ty + 13.5);
     }
   }
   // name tag above the player's head
