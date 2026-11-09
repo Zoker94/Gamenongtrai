@@ -17,6 +17,7 @@ import { TILE, World } from './world.ts';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d', { alpha: false })!;
+const mainCtx = ctx;
 
 const lbar = document.getElementById('lbar') as HTMLElement;
 const ltext = document.getElementById('ltext') as HTMLElement;
@@ -326,21 +327,60 @@ function cropFrame(p: Plot): string {
   if (p.s === 0) return 'pc_sprout:s';
   return p.s >= RIPE ? 'pc_' + c : p.s === 1 ? 'pc_sprout:s' : 'pc_sprout';
 }
-function roundRect(x: number, y: number, w: number, h: number, r: number) {
+function roundRect(x: number, y: number, w: number, h: number, r: number, ctx: CanvasRenderingContext2D = mainCtx) {
   ctx.beginPath();
   ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
   ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
 }
+const plotRnd = (seed: number, i: number) => { const v = Math.sin(seed * 12.9898 + i * 78.233) * 43758.5453; return v - Math.floor(v); };
+/** The whole planting grid is pre-rendered into one offscreen canvas and only
+ *  redrawn when a plot changes state (or the zoom changes): drawing 32 clipped
+ *  rounded patches every frame was the main cost near the garden. */
+let plotLayer: HTMLCanvasElement | null = null, plotSig = '', plotScale = 0;
+const PL_PAD = 2;
+function plotLayerFor(plots: Record<string, { w?: number; c?: string }>, scale: number): HTMLCanvasElement {
+  let sig = '';
+  for (let r = 0; r < PG!.rows; r++) for (let c = 0; c < PG!.cols; c++) {
+    const p = plots[key(c, r)]; sig += p ? (p.w ? '2' : '1') : '0';
+  }
+  if (plotLayer && sig === plotSig && scale === plotScale) return plotLayer;
+  const W = PG!.cols * PG!.cell + PL_PAD * 2, H = PG!.rows * PG!.cell + PL_PAD * 2;
+  if (!plotLayer || scale !== plotScale) {
+    plotLayer = document.createElement('canvas');
+    plotLayer.width = Math.ceil(W * scale); plotLayer.height = Math.ceil(H * scale);
+  }
+  const g = plotLayer.getContext('2d')!;
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, plotLayer.width, plotLayer.height);
+  g.setTransform(scale, 0, 0, scale, (PL_PAD - PG!.x) * scale, (PL_PAD - PG!.y) * scale);
+  g.imageSmoothingEnabled = false;
+  let i = 0;
+  for (let r = 0; r < PG!.rows; r++) for (let c = 0; c < PG!.cols; c++) {
+    const [bx, by, bc] = plotRect(c, r);
+    drawPlot(g, bx, by, bc, +sig[i++], c * 31 + r * 17);
+  }
+  plotSig = sig; plotScale = scale;
+  return plotLayer;
+}
+/** soft golden glow behind ripe crops, made once */
+let glowImg: HTMLCanvasElement | null = null;
+function ripeGlow(): HTMLCanvasElement {
+  if (glowImg) return glowImg;
+  glowImg = document.createElement('canvas'); glowImg.width = glowImg.height = 72;
+  const g = glowImg.getContext('2d')!, gr = g.createRadialGradient(36, 36, 0, 36, 36, 36);
+  gr.addColorStop(0, 'rgba(255,230,120,1)'); gr.addColorStop(1, 'rgba(255,230,120,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 72, 72);
+  return glowImg;
+}
 /** A planting plot: 0 = barren, 1 = tilled, 2 = watered. Textures come from the
  *  ploughed-soil tile of the user's sheet, clipped to a rounded square. */
-function drawPlot(x: number, y: number, c: number, state: number, seed: number, time: number) {
+function drawPlot(ctx: CanvasRenderingContext2D, x: number, y: number, c: number, state: number, seed: number) {
   const g = 1.5, r = 5, w = c - g * 2;
-  const rnd = (i: number) => { const v = Math.sin(seed * 12.9898 + i * 78.233) * 43758.5453; return v - Math.floor(v); };
+  const rnd = (i: number) => plotRnd(seed, i);
   // soft shadow under the patch
   ctx.fillStyle = 'rgba(60,35,15,0.35)';
-  roundRect(x + g, y + g + 1, w, w, r); ctx.fill();
+  roundRect(x + g, y + g + 1, w, w, r, ctx); ctx.fill();
   ctx.save();
-  roundRect(x + g, y + g, w, w, r); ctx.clip();
+  roundRect(x + g, y + g, w, w, r, ctx); ctx.clip();
   if (state === 0) {
     // barren: cracked dry soil (user asset)
     const f = atlas.frames['tex_dry'];
@@ -360,23 +400,17 @@ function drawPlot(x: number, y: number, c: number, state: number, seed: number, 
       ctx.moveTo(sx, sy); ctx.lineTo(sx + 4, sy + 2); ctx.lineTo(sx + 6, sy + 5);
       ctx.stroke();
     } else {
-      // watered: dark, glossy, little puddle shine and twinkling droplets
+      // watered: dark, glossy, little puddle shine and (droplets are animated per frame)
       ctx.fillStyle = 'rgba(40,25,30,0.25)';
       ctx.fillRect(x, y, c, c);
       ctx.fillStyle = 'rgba(170,210,255,0.16)';
       ctx.beginPath(); ctx.ellipse(x + c * 0.36, y + c * 0.32, c * 0.22, c * 0.09, -0.3, 0, Math.PI * 2); ctx.fill();
-      for (let k = 0; k < 3; k++) {
-        const a = 0.35 + 0.45 * Math.sin(time / 300 + seed + k * 2.1);
-        if (a <= 0.1) continue;
-        ctx.fillStyle = `rgba(220,240,255,${a})`;
-        ctx.fillRect(x + 4 + rnd(k + 40) * (c - 8), y + 4 + rnd(k + 50) * (c - 8), 1.4, 1.4);
-      }
     }
   }
   ctx.restore();
   ctx.strokeStyle = state === 2 ? 'rgba(40,22,15,0.8)' : state === 1 ? 'rgba(70,40,20,0.65)' : 'rgba(110,70,35,0.5)';
   ctx.lineWidth = 1;
-  roundRect(x + g + 0.5, y + g + 0.5, w - 1, w - 1, r - 0.5); ctx.stroke();
+  roundRect(x + g + 0.5, y + g + 0.5, w - 1, w - 1, r - 0.5, ctx); ctx.stroke();
 }
 const pool: Drawable[] = [];
 const list: Drawable[] = [];
@@ -407,11 +441,27 @@ function render(time: number) {
   const plots = store.st.plots;
   if (PG) {
     // every plot of the planting grid: rounded patch, small gap in between
-    for (let r = 0; r < PG.rows; r++)
+    const gw = PG.cols * PG.cell, gh = PG.rows * PG.cell;
+    const gridVisible = PG.x + gw + 20 > camX && PG.x - 20 < camX + vw && PG.y + gh + 20 > camY && PG.y - 30 < camY + vh;
+    if (gridVisible) {
+      const scale = Math.min(6, Math.max(2, Math.ceil(zoom)));
+      const layer = plotLayerFor(plots, scale);
+      ctx.drawImage(layer, PG.x - PL_PAD, PG.y - PL_PAD, layer.width / scale, layer.height / scale);
+    }
+    for (let r = 0; r < PG.rows && gridVisible; r++)
       for (let c = 0; c < PG.cols; c++) {
         const p = plots[key(c, r)];
         const [bx, by, bc] = plotRect(c, r);
-        drawPlot(bx, by, bc, p ? (p.w ? 2 : 1) : 0, c * 31 + r * 17, time);
+        if (p && p.w) {
+          // watered: twinkling droplets on the wet soil
+          const seed = c * 31 + r * 17;
+          for (let k = 0; k < 3; k++) {
+            const a = 0.35 + 0.45 * Math.sin(time / 300 + seed + k * 2.1);
+            if (a <= 0.1) continue;
+            ctx.fillStyle = `rgba(220,240,255,${a.toFixed(2)})`;
+            ctx.fillRect(bx + 4 + plotRnd(seed, k + 40) * (bc - 8), by + 4 + plotRnd(seed, k + 50) * (bc - 8), 1.4, 1.4);
+          }
+        }
         if (p && p.c) {
           // plant sits in the middle of the plot (seeds/sprouts a bit higher)
           const fr = cropFrame(p);
@@ -481,8 +531,11 @@ function render(time: number) {
       let nm = d.name.slice(0, -2), k = PG ? PG.cell / TILE * 1.05 : 1;
       if (nm.endsWith(':s')) { nm = nm.slice(0, -2); k *= 0.6; }
       const sw = swayFor(nm.startsWith('cp_rice') ? 'tallgrass_top' : 'crop_', d.x, d.y, ts);
-      ctx.save(); ctx.imageSmoothingEnabled = true; ctx.translate(d.x, d.y); ctx.transform(k, 0, sw * k, k, 0, 0);
-      drawAnchored(ctx, atlas, nm, 0, 0, d.flip); ctx.restore();
+      // direct matrix instead of save/restore: 32 crops per frame near the garden
+      ctx.imageSmoothingEnabled = true;
+      ctx.setTransform(zoom * k, 0, zoom * sw * k, zoom * k, zoom * d.x - ox, zoom * d.y - oy);
+      drawAnchored(ctx, atlas, nm, 0, 0, d.flip);
+      ctx.setTransform(zoom, 0, 0, zoom, -ox, -oy); ctx.imageSmoothingEnabled = zoom < atlas.res - 0.05;
       continue;
     }
     if (d.name.endsWith(':s')) {           // small variant (young sprout)
@@ -512,11 +565,9 @@ function render(time: number) {
     if (bx < camX - 40 || bx > camX + vw + 40 || by < camY - 40 || by > camY + vh + 40) continue;
     const cx = bx + bc / 2, cy = by + bc / 4;
     const ph = ts * 2.2 + tx * 1.7 + ty * 2.9;
-    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 18);
-    g.addColorStop(0, `rgba(255,230,120,${0.06 + 0.03 * Math.sin(ph)})`);
-    g.addColorStop(1, 'rgba(255,230,120,0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(cx - 18, cy - 18, 36, 36);
+    ctx.globalAlpha = 0.06 + 0.03 * Math.sin(ph);
+    ctx.drawImage(ripeGlow(), cx - 18, cy - 18, 36, 36);
+    ctx.globalAlpha = 1;
     for (let j = 0; j < 2; j++) {
       const a = Math.sin(ph * 1.3 + j * 2.4);
       if (a <= 0.2) continue;
