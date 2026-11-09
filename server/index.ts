@@ -11,11 +11,14 @@ import { brotliCompressSync, gzipSync, constants as zc } from 'node:zlib';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { applyAction, growAll, newFarm, type Action, type FarmState } from '../shared/rules.ts';
 import { buildFarm, isTillable } from '../shared/maps/farm.ts';
+import { Auth } from './auth.ts';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = join(ROOT, 'dist');
 const SAVES = join(ROOT, 'data', 'saves');
 const PORT = Number(process.env.PORT) || 8080;
+const auth = new Auth(join(ROOT, 'data'));
+await auth.init();
 
 const farmMap = buildFarm();
 const canTill = (x: number, y: number) => isTillable(farmMap, x, y);
@@ -112,7 +115,54 @@ function scheduleSave(id: string, s: Session) {
 const send = (ws: WebSocket, msg: unknown) => { if (ws.readyState === 1) ws.send(JSON.stringify(msg)); };
 
 // ------------------------------------------------------------------- server
+// ------------------------------------------------------------- account API
+function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
+  return new Promise((resolve) => {
+    let size = 0; const parts: Buffer[] = [];
+    req.on('data', (c: Buffer) => { size += c.length; if (size > 4096) req.destroy(); else parts.push(c); });
+    req.on('end', () => { try { resolve(JSON.parse(Buffer.concat(parts).toString('utf8')) || {}); } catch { resolve({}); } });
+    req.on('error', () => resolve({}));
+  });
+}
+const json = (res: ServerResponse, code: number, body: unknown) => {
+  res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+  res.end(JSON.stringify(body));
+};
+const bearer = (req: IncomingMessage) => auth.verify(String(req.headers.authorization || '').replace(/^Bearer /, ''));
+
+async function api(req: IncomingMessage, res: ServerResponse, path: string) {
+  const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+  if (req.method === 'POST' && (path === 'register' || path === 'login')) {
+    const lim = auth.limit(ip);
+    if (lim) return json(res, 429, { error: lim });
+    const b = await readJson(req);
+    const r = path === 'register'
+      ? await auth.register(String(b.username || ''), String(b.password || ''))
+      : await auth.login(String(b.username || ''), String(b.password || ''));
+    if (typeof r === 'string') return json(res, 400, { error: r });
+    return json(res, 200, { token: r.token, profile: auth.profile(r.user) });
+  }
+  const u = bearer(req);
+  if (!u) return json(res, 401, { error: 'Phiên đăng nhập đã hết hạn' });
+  if (req.method === 'GET' && path === 'me') {
+    const user = await auth.getUser(u);
+    return user ? json(res, 200, { profile: auth.profile(user) }) : json(res, 401, { error: 'Tài khoản không tồn tại' });
+  }
+  if (req.method === 'POST' && path === 'character') {
+    const b = await readJson(req);
+    const r = await auth.setCharacter(u, String(b.name || ''), String(b.gender || ''));
+    if (typeof r === 'string') return json(res, 400, { error: r });
+    return json(res, 200, { profile: auth.profile(r) });
+  }
+  json(res, 404, { error: 'not found' });
+}
+
 const http = createServer((req, res) => {
+  const url = req.url || '/';
+  if (url.startsWith('/api/')) {
+    api(req, res, url.slice(5).split('?')[0]).catch((e) => { console.error(e); json(res, 500, { error: 'Lỗi máy chủ' }); });
+    return;
+  }
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405).end(); return; }
   if (req.url === '/healthz') { res.writeHead(200).end('ok'); return; }
   serveStatic(req, res).catch((e) => { console.error(e); res.writeHead(500).end(); });
@@ -121,8 +171,10 @@ const http = createServer((req, res) => {
 const wss = new WebSocketServer({ server: http, path: '/ws', maxPayload: 4096, perMessageDeflate: false });
 
 wss.on('connection', async (ws, req) => {
-  const id = new URL(req.url || '', 'http://x').searchParams.get('id') || '';
-  if (!/^[a-f0-9]{24}$/.test(id)) { ws.close(1008, 'bad id'); return; }
+  const uname = auth.verify(new URL(req.url || '', 'http://x').searchParams.get('token') || '');
+  const user = uname ? await auth.getUser(uname) : null;
+  if (!user || !user.name) { ws.close(4001, 'auth'); return; }
+  const id = user.pid;
 
   let s = sessions.get(id);
   if (!s) {

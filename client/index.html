@@ -14,7 +14,8 @@
   <canvas id="game"></canvas>
   <div id="hud">
     <div id="top">
-      <div id="avatar"></div>
+      <div id="avatar" title="Tài khoản"></div>
+      <div class="pill" id="pname"></div>
       <div class="pill" id="coins"></div>
       <div class="pill" id="place">Nông trại</div>
       <div class="pill" id="weather" data-k="sun">Trời nắng</div>
@@ -31,6 +32,7 @@
     </div>
     <div id="panel" hidden></div>
   </div>
+  <div id="auth" hidden></div>
   <div id="loading"><div class="lbox"><b>Nông Trại</b><div class="bar"><i id="lbar"></i></div><span id="ltext">Đang tải…</span></div></div>
   </div>
   <script type="module" src="/src/main.ts"></script>

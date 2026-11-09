@@ -1,24 +1,11 @@
 import { type Action, type FarmState, type StarterPlot, applyAction, growAll, newFarm } from '../../shared/rules.ts';
 
-const LS_ID = 'gnt_id';
-const LS_FARM = 'gnt_farm';
+const LS_FARM = 'gnt_farm:';
 
 type ServerMsg =
   | { t: 'state'; st: FarmState; now: number }
   | { t: 'ok'; seq: number; v: number }
   | { t: 'err'; seq: number; msg: string; st: FarmState; now: number };
-
-function playerId(): string {
-  let id = '';
-  try { id = localStorage.getItem(LS_ID) || ''; } catch { /* private mode */ }
-  if (!/^[a-f0-9]{24}$/.test(id)) {
-    const b = new Uint8Array(12);
-    crypto.getRandomValues(b);
-    id = Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
-    try { localStorage.setItem(LS_ID, id); } catch { /* ignore */ }
-  }
-  return id;
-}
 
 /**
  * Farm state store. Actions are applied immediately (client prediction with
@@ -37,11 +24,17 @@ export class Store {
   onChange: () => void = () => {};
   onError: (msg: string) => void = () => {};
   onNet: (online: boolean) => void = () => {};
+  /** server rejected the session token */
+  onAuthFail: () => void = () => {};
+  private readonly token: string;
+  private readonly lsKey: string;
 
-  constructor(canTill: (x: number, y: number) => boolean, starter: StarterPlot[] = []) {
+  constructor(canTill: (x: number, y: number) => boolean, starter: StarterPlot[], token: string, username: string) {
     this.canTill = canTill;
+    this.token = token;
+    this.lsKey = LS_FARM + username;
     let st: FarmState | null = null;
-    try { st = JSON.parse(localStorage.getItem(LS_FARM) || 'null'); } catch { /* ignore */ }
+    try { st = JSON.parse(localStorage.getItem(this.lsKey) || 'null'); } catch { /* ignore */ }
     this.st = st && st.plots ? st : newFarm(starter);
     this.connect();
   }
@@ -65,14 +58,14 @@ export class Store {
   private saveLocal() {
     clearTimeout(this.saveTimer);
     this.saveTimer = window.setTimeout(() => {
-      try { localStorage.setItem(LS_FARM, JSON.stringify(this.st)); } catch { /* quota */ }
+      try { localStorage.setItem(this.lsKey, JSON.stringify(this.st)); } catch { /* quota */ }
     }, 500);
   }
 
   private connect() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     let ws: WebSocket;
-    try { ws = new WebSocket(`${proto}//${location.host}/ws?id=${playerId()}`); } catch { return; }
+    try { ws = new WebSocket(`${proto}//${location.host}/ws?token=${encodeURIComponent(this.token)}`); } catch { return; }
     this.ws = ws;
     ws.onopen = () => { this.retry = 1000; };
     ws.onmessage = (ev) => {
@@ -87,7 +80,8 @@ export class Store {
         this.saveLocal();
       }
     };
-    ws.onclose = () => {
+    ws.onclose = (ev) => {
+      if (ev.code === 4001) { this.onAuthFail(); return; }
       this.ws = null;
       if (this.online) { this.online = false; this.onNet(false); }
       setTimeout(() => this.connect(), this.retry);

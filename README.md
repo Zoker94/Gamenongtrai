@@ -20,6 +20,14 @@ npm run dev        # Vite: http://localhost:5173, server game chạy ở cổng 
 Yêu cầu Node.js ≥ 22.18 (máy chủ chạy trực tiếp file TypeScript, không cần bước build).
 Muốn cắt lại sprite từ ảnh gốc thì chạy `npm run assets` (cần Python 3 và Pillow).
 
+## Tài khoản
+
+Vào game cần **đăng ký / đăng nhập** (tên đăng nhập + mật khẩu), sau đó **tạo nhân vật** (chọn nhân vật, đặt tên).
+- Tài khoản lưu ở `data/users/<tên>.json`, mật khẩu băm bằng scrypt; phiên đăng nhập là token ký HMAC, hạn 30 ngày.
+- Khoá ký token: biến môi trường `AUTH_SECRET` (nên đặt trên Render/VPS), nếu không có thì tự tạo `data/secret.key`.
+- API: `POST /api/register`, `POST /api/login`, `GET /api/me`, `POST /api/character`.
+- Nhân vật nữ tự mở khi có sprite `pl5_*` trong atlas.
+
 ## Điều khiển
 
 | | PC | Điện thoại |

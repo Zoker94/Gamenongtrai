@@ -8,6 +8,7 @@ import { Input } from './input.ts';
 import { WEATHER_NAME, Weather } from './weather.ts';
 import { updateOrientation } from './orient.ts';
 import { Store } from './net.ts';
+import { enterGame, logout } from './login.ts';
 import { Player } from './player.ts';
 import { UI } from './ui.ts';
 import { TILE, World } from './world.ts';
@@ -33,12 +34,20 @@ try {
   ltext.after(b);
   throw new Error('load failed');
 }
+// login / register / character creation
+document.getElementById('loading')!.style.display = 'none';
+const session = await enterGame(atlas);
+document.getElementById('loading')!.style.display = '';
 ltext.textContent = 'Đang dựng bản đồ…';
 lbar.style.width = '95%';
 await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0))); // let the text paint
 const world = new World(map, atlas, cachedGround);
 if (world.rendered) setTimeout(() => { void world.chunkBlobs().then((b) => saveGround(map.id, b)); }, 3000);
-const store = new Store((x, y) => isTillable(map, x, y), map.starter);
+const store = new Store((x, y) => isTillable(map, x, y), map.starter, session.token, session.profile.username);
+store.onAuthFail = () => logout();
+const playerName = session.profile.name;
+(document.getElementById('pname') as HTMLElement).textContent = playerName;
+document.getElementById('avatar')!.addEventListener('click', () => { if (confirm(`Đăng xuất tài khoản ${session.profile.username}?`)) logout(); });
 const ui = new UI(atlas);
 const input = new Input(canvas, document.getElementById('stick')!, document.getElementById('knob')!, document.getElementById('act')!);
 const player = new Player(map.spawn.x * TILE + TILE / 2, map.spawn.y * TILE + TILE - 4);
@@ -483,6 +492,18 @@ function render(time: number) {
       ctx.fillRect(sx - r, sy - 0.5, r * 2, 1);
       ctx.fillRect(sx - 0.5, sy - r, 1, r * 2);
     }
+  }
+  // name tag above the player's head
+  {
+    ctx.font = 'bold 6px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    const tw = ctx.measureText(playerName).width + 6;
+    const tx = player.x, ty = player.y - 37;
+    ctx.fillStyle = 'rgba(40,24,10,0.55)';
+    roundRect(tx - tw / 2, ty - 8, tw, 9, 3); ctx.fill();
+    ctx.fillStyle = '#fff6dc';
+    ctx.fillText(playerName, tx, ty);
   }
   fx.drawAir(ctx, ts, camX, camY, vw, vh);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
