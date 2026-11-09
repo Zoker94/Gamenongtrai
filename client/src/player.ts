@@ -49,14 +49,15 @@ export class Player {
   /** frame counts per direction of the full-body actions: h = harvest, g = hoe */
   harvestN: number[] = [];
   hoeN: number[] = [];
-  private static readonly FRAME: Record<string, number> = { h: 0.15, g: 0.1 };
+  waterN: number[] = [];
+  private static readonly FRAME: Record<string, number> = { h: 0.15, g: 0.1, u: 0.12 };
 
-  private playBody(tag: 'h' | 'g', counts: number[]): boolean {
+  private playBody(tag: 'h' | 'g' | 'u', counts: number[]): boolean {
     const d = this.bodyDir(counts);
     const n = counts[d] || 0;
     if (!n) return false;
     const total = n * Player.FRAME[tag];
-    this.action = { name: tag === 'h' ? 'harvest' : 'hoe', t: total };
+    this.action = { name: tag === 'h' ? 'harvest' : tag === 'g' ? 'hoe' : 'water', t: total };
     this.bodyAnim = { tag, d, n, total };
     return true;
   }
@@ -64,6 +65,8 @@ export class Player {
   playHarvest() { return this.playBody('h', this.harvestN); }
   /** Hoe animation: swing the hoe over the head and strike the soil. */
   playHoe() { return this.playBody('g', this.hoeN); }
+  /** Watering animation: tip the can, water pours onto the soil. */
+  playWater() { return this.playBody('u', this.waterN); }
   private bodyAnim = { tag: 'h', d: 0, n: 0, total: 1 };
   /** diagonals use the side animation; a missing direction falls back to the side / front one */
   private bodyDir(counts: number[]) {
@@ -72,7 +75,7 @@ export class Player {
     if (!counts[d]) d = d === 4 ? (counts[2] ? 2 : 0) : d;
     return d;
   }
-  get busy() { return !!this.action && (this.action.name === 'harvest' || this.action.name === 'hoe'); }
+  get busy() { return !!this.action && (this.action.name === 'harvest' || this.action.name === 'hoe' || this.action.name === 'water'); }
   /** 0 down, 1 down-right, 2 right, 3 up-right, 4 up, 5 up-left, 6 left, 7 down-left */
   dir8 = 0;
 

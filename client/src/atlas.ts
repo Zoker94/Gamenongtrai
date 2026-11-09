@@ -1,6 +1,6 @@
 /** [srcX, srcY, worldW, worldH, srcW, srcH]: source rect in the atlas image,
  *  size in game pixels (atlas is stored at `res` x density). */
-export type Frame = [x: number, y: number, w: number, h: number, sw: number, sh: number];
+export type Frame = [x: number, y: number, w: number, h: number, sw: number, sh: number, below?: number];
 
 export interface Atlas {
   img: CanvasImageSource;
@@ -62,7 +62,8 @@ export async function loadAtlas(base = '/assets/', onProgress?: (p: number) => v
   const frames: Record<string, Frame> = {};
   for (const k in meta.frames) {
     const [x, y, w, h] = meta.frames[k];
-    frames[k] = [x, y, w / res, h / res, w, h];
+    const below = meta.anchors?.[k] ? meta.anchors[k] / res : 0;
+    frames[k] = [x, y, w / res, h / res, w, h, below];
   }
   return { img, frames, res, masks: meta.masks || {} };
 }
@@ -74,7 +75,7 @@ export function drawAnchored(
 ) {
   const f = a.frames[name];
   if (!f) return;
-  const dx = Math.round(x - f[2] / 2), dy = Math.round(y - f[3]);
+  const dx = Math.round(x - f[2] / 2), dy = Math.round(y - f[3] + (f[6] || 0));
   if (flip) {
     ctx.save();
     ctx.translate(dx + f[2], dy);

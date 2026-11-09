@@ -72,6 +72,7 @@ if (atlas.frames['pl4_0_w0']) {
   player.walkN = [0, 1, 2, 3, 4, 5, 6, 7].map((d) => count(d, 'w'));
   player.harvestN = [0, 1, 2, 3, 4, 5, 6, 7].map((d) => count(d, 'h'));
   player.hoeN = [0, 1, 2, 3, 4, 5, 6, 7].map((d) => count(d, 'g'));
+  player.waterN = [0, 1, 2, 3, 4, 5, 6, 7].map((d) => count(d, 'u'));
 }
 
 document.getElementById('loading')!.remove();
@@ -136,7 +137,7 @@ function useTarget(t: Target) {
   }
   const slot = ui.current;
   if (slot.id === 'hoe') { if (store.act({ t: 'till', x: tx, y: ty })) { if (!player.playHoe()) player.playAction('pl_hoe'); setTimeout(() => fx.burst(bx + bc / 2, by + bc - 4, 'soil', 10), 420); } }
-  else if (slot.id === 'can') { if (store.act({ t: 'water', x: tx, y: ty })) { player.playAction('pl_water'); fx.burst(bx + bc / 2, by + bc / 2, 'water', 12); } }
+  else if (slot.id === 'can') { if (store.act({ t: 'water', x: tx, y: ty })) { if (!player.playWater()) player.playAction('pl_water'); setTimeout(() => fx.burst(bx + bc / 2, by + bc / 2, 'water', 12), 550); } }
   else if (slot.id.startsWith('seed:')) store.act({ t: 'plant', x: tx, y: ty, crop: slot.id.slice(5) });
   else if (slot.id === 'fert') { if (store.act({ t: 'fertilize', x: tx, y: ty })) { ui.toast('Đã bón phân', 900); fx.burst(bx + bc / 2, by + bc / 2, 'soil', 10); } }
   else if (slot.id === 'spray') { if (store.act({ t: 'spray', x: tx, y: ty })) { ui.toast('Đã diệt sâu', 900); fx.burst(bx + bc / 2, by + bc / 2, 'water', 16); } }

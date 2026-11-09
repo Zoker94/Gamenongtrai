@@ -295,6 +295,9 @@ def cut_player_walk():
     return out
 
 
+ANCHORS = {}   # sprite name -> px (atlas) the image extends below its anchor
+
+
 def cut_char2():
     """assets/source/char2/: idle_<d>.gif (breathing, 4 directions) and
     walk_<d>.gif (8 directions). d: 0 down, 1 down-right, 2 right, 3 up-right,
@@ -338,18 +341,23 @@ def cut_char2():
             out[f'pl4_{d}_w{i}'] = place(f, cx)
         # harvest (pick up a crate): same canvas position as the idle frames,
         # bottom cut at the idle feet line so the body does not jump
-        for act, tag in (('harvest', 'h'), ('hoe', 'g')):
+        for act, tag in (('harvest', 'h'), ('hoe', 'g'), ('water', 'u')):
           hp = os.path.join(base, f'{act}_{d}.gif')
           if not os.path.exists(hp):
               continue
           base_y = max(f.getchannel('A').getbbox()[3] for f in idle)
           for i, f in enumerate(load(hp)):
-              f2 = f.crop((0, 0, f.width, base_y))
+              # watering: keep the water that falls below the feet line; the
+              # extra height is stored as an anchor offset (ANCHORS)
+              bot = max(base_y, f.getchannel('A').getbbox()[3]) if tag == 'u' else base_y
+              f2 = f.crop((0, 0, f.width, bot))
               bb2 = f2.getchannel('A').getbbox()
               hw = max(cx - bb2[0], bb2[2] - cx) + 1
-              im = Image.new('RGBA', (hw * 2, base_y - bb2[1]), (0, 0, 0, 0))
-              im.paste(f2.crop((bb2[0], bb2[1], bb2[2], base_y)), (hw - (cx - bb2[0]), 0))
+              im = Image.new('RGBA', (hw * 2, bot - bb2[1]), (0, 0, 0, 0))
+              im.paste(f2.crop((bb2[0], bb2[1], bb2[2], bot)), (hw - (cx - bb2[0]), 0))
               out[f'pl4_{d}_{tag}{i}'] = im
+              if bot > base_y:
+                  ANCHORS[f'pl4_{d}_{tag}{i}'] = bot - base_y
     return out
 
 
@@ -1183,7 +1191,7 @@ def main():
     out_path = os.path.join(OUT_DIR, 'atlas.webp')
     atlas.save(out_path, 'WEBP', quality=90, method=6)
     with open(os.path.join(OUT_DIR, 'atlas.json'), 'w') as f:
-        json.dump({'w': atlas.width, 'h': atlas.height, 'res': RES, 'frames': rects, 'masks': masks}, f, separators=(',', ':'))
+        json.dump({'w': atlas.width, 'h': atlas.height, 'res': RES, 'frames': rects, 'masks': masks, 'anchors': ANCHORS}, f, separators=(',', ':'))
     print(f'atlas {atlas.width}x{atlas.height} @{RES}x, {len(rects)} sprites, {os.path.getsize(out_path)//1024} KB')
 
     if '--preview' in sys.argv:
