@@ -9,6 +9,11 @@ export interface NpcDef {
   name: string;
   waypoints: [number, number][];  // tiles
   lines: string[];
+  /** stays on its first waypoint (only turns to face the player) */
+  stationary?: boolean;
+  facing?: number;
+  /** draw scale relative to the sprite */
+  scale: number;
 }
 
 export class Npc {
@@ -28,6 +33,7 @@ export class Npc {
     this.def = def;
     const [tx, ty] = def.waypoints[0];
     this.x = tx * TILE + 16; this.y = ty * TILE + 28;
+    this.dir8 = def.facing ?? 0;
   }
 
   get frame() { return `${this.def.sprite}_${this.dir8}`; }
@@ -48,6 +54,7 @@ export class Npc {
       this.face(px - this.x, py - this.y);
       return;
     }
+    if (this.def.stationary) { this.moving = false; this.dir8 = this.def.facing ?? 0; return; }
     if (!this.target) {
       if ((this.wait -= dt) > 0) { this.moving = false; return; }
       const wp = this.def.waypoints;
@@ -76,7 +83,12 @@ export const FARM_NPCS: NpcDef[] = [
   {
     sprite: 'npc_farmer',
     name: 'Bác Ba',
-    waypoints: [[14, 8], [9, 8], [12, 10], [12, 13], [18, 8], [16, 9], [20, 8]],
+    // stands on the grass between the road and the field, by the crossroads
+    waypoints: [[10.5, 9]],
+    stationary: true,
+    facing: 0,
+    // 17% taller than the player (player idle 88px x1.35 -> 104px sprite x1.34)
+    scale: 1.34,
     lines: [
       'Chào cháu! Bác là Bác Ba, coi nông trại này mấy chục năm rồi.',
       'Đất khô cằn thì dùng cuốc xới trước, rồi mới gieo hạt được.',

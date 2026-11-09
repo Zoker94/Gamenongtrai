@@ -462,7 +462,8 @@ function render(time: number) {
       ctx.fillStyle = 'rgba(30,36,10,0.3)';
       ctx.beginPath(); ctx.ellipse(d.x, d.y - 0.5, 7, 2.4, 0, 0, Math.PI * 2); ctx.fill();
       ctx.save(); ctx.imageSmoothingEnabled = true;
-      ctx.translate(d.x, d.y - (n ? n.bob : 0)); ctx.scale(1.25, 1.25);
+      const k = n ? n.def.scale : 1.25;
+      ctx.translate(d.x, d.y - (n ? n.bob : 0)); ctx.scale(k, k);
       drawAnchored(ctx, atlas, d.name.slice(0, -2), 0, 0, false); ctx.restore();
       continue;
     }
@@ -612,8 +613,8 @@ function render(time: number) {
     ctx.font = 'bold 6px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
     const nw = ctx.measureText(n.def.name).width + 6;
     ctx.fillStyle = 'rgba(120,70,10,0.7)';
-    roundRect(n.x - nw / 2, n.y - 50, nw, 9, 3); ctx.fill();
-    ctx.fillStyle = '#ffe9a8'; ctx.fillText(n.def.name, n.x, n.y - 42);
+    roundRect(n.x - nw / 2, n.y - 56, nw, 9, 3); ctx.fill();
+    ctx.fillStyle = '#ffe9a8'; ctx.fillText(n.def.name, n.x, n.y - 48);
     if (n.sayT > 0) {
       ctx.font = '5.5px system-ui, sans-serif';
       // wrap to ~110px
@@ -623,7 +624,7 @@ function render(time: number) {
       if (cur) lines.push(cur);
       const bw = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 10, bh = lines.length * 7 + 6;
       let bx = n.x - bw / 2; bx = Math.max(camX + 2, Math.min(camX + vw - bw - 2, bx));
-      const by = n.y - 56 - bh;
+      const by = n.y - 62 - bh;
       ctx.globalAlpha = Math.min(1, n.sayT * 3);
       ctx.fillStyle = 'rgba(255,248,228,0.97)'; ctx.strokeStyle = '#4a2c17'; ctx.lineWidth = 1;
       roundRect(bx, by, bw, bh, 4); ctx.fill(); ctx.stroke();
