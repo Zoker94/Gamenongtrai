@@ -52,6 +52,7 @@ if (atlas.frames['pl4_0_w0']) {
   const count = (d: number, k: string) => { let n = 0; while (atlas.frames[`pl4_${d}_${k}${n}`]) n++; return n; };
   player.idleN = [0, 1, 2, 3, 4, 5, 6, 7].map((d) => count(d, 'i'));
   player.walkN = [0, 1, 2, 3, 4, 5, 6, 7].map((d) => count(d, 'w'));
+  player.harvestN = [0, 1, 2, 3, 4, 5, 6, 7].map((d) => count(d, 'h'));
 }
 
 document.getElementById('loading')!.remove();
@@ -110,7 +111,7 @@ function useTarget(t: Target) {
   const p: Plot | undefined = store.st.plots[key(tx, ty)];
   if (p && p.c && p.s >= RIPE) {
     const c = p.c;
-    if (store.act({ t: 'harvest', x: tx, y: ty })) { ui.toast(`+1 ${CROPS[c].name}`, 900); player.playAction('pl_harvest'); fx.burst(bx + bc / 2, by + bc / 2, 'leaf', 8); }
+    if (store.act({ t: 'harvest', x: tx, y: ty })) { ui.toast(`+1 ${CROPS[c].name}`, 900); if (!player.playHarvest()) player.playAction('pl_harvest'); fx.burst(bx + bc / 2, by + bc / 2, 'leaf', 8); }
     return;
   }
   const slot = ui.current;
@@ -250,7 +251,7 @@ function update(dt: number) {
     const [cx, cy] = targetCenter(t);
     if (Math.hypot(cx - player.x, cy - (player.y - 6)) <= TILE * 1.7) target = t;
   }
-  if (input.actionPressed) useTarget(target);
+  if (input.actionPressed && !player.busy) useTarget(target);
   input.consume();
 
   // map exits (other maps come next)

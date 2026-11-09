@@ -46,6 +46,23 @@ export class Player {
   /** char2 set: per direction idle (breathing) + walk frame counts, from the atlas */
   idleN: number[] | null = null;
   walkN: number[] = [];
+  /** harvest (crate pick-up) frame counts per direction, 0 = none */
+  harvestN: number[] = [];
+  private static readonly HARVEST_FRAME = 0.15;
+
+  /** Harvest animation: crouch, lift the crate. Locks movement while it plays. */
+  playHarvest(): boolean {
+    const d = this.harvestDir();
+    const n = this.harvestN[d] || 0;
+    if (!n) return false;
+    this.action = { name: 'harvest', t: n * Player.HARVEST_FRAME };
+    this.harvestTotal = n * Player.HARVEST_FRAME;
+    return true;
+  }
+  private harvestTotal = 0;
+  /** diagonals use the side animation */
+  private harvestDir() { const d = this.dir8; return d === 1 || d === 3 ? 2 : d === 5 || d === 7 ? 6 : d; }
+  get busy() { return !!this.action && this.action.name === 'harvest'; }
   /** 0 down, 1 down-right, 2 right, 3 up-right, 4 up, 5 up-left, 6 left, 7 down-left */
   dir8 = 0;
 
@@ -53,6 +70,11 @@ export class Player {
 
   /** sprite to draw + whether to mirror it */
   get frame(): F {
+    if (this.idleN && this.action && this.action.name === 'harvest') {
+      const d = this.harvestDir(), n = this.harvestN[d];
+      const i = Math.min(n - 1, Math.floor((this.harvestTotal - this.action.t) / Player.HARVEST_FRAME));
+      return [`pl4_${d}_h${i}`, false];
+    }
     if (this.idleN) {
       const d = this.dir8;
       if (!this.moving || this.vel < 0.05) {
@@ -85,6 +107,7 @@ export class Player {
   /** Continuous body motion layered on the sprite frames, so the 2-frame
    *  walk cycle reads as smooth movement: [dy, scaleX, scaleY, lean]. */
   get pose(): [number, number, number, number] {
+    if (this.action && this.idleN && this.action.name === 'harvest') return [0, 1.15, 1.15, 0];
     if (this.action) {
       // little anticipation squash at the start of a tool swing
       const k = Math.max(0, this.action.t - 0.25) / 0.1;
@@ -122,6 +145,7 @@ export class Player {
   update(dt: number, ix: number, iy: number, world: World) {
     if (this.action && (this.action.t -= dt) <= 0) this.action = null;
     this.idleT += dt;
+    if (this.busy) { ix = 0; iy = 0; this.target = null; }
     if (ix || iy) this.target = null;
     else if (this.target) {
       const dx = this.target.x - this.x, dy = this.target.y - this.y;
