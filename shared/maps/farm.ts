@@ -169,7 +169,6 @@ export function buildFarm(): GameMap {
   o('lamp_post', 4.2, 7);
   o('lamp_post', 5.8, 7);
   o('chest_gold', 7.3, 7);        // shipping bin
-  o('seed_bag', 8.6, 7);          // seed shop
   o('flower_bush_r', 3.2, 7.3);
   o('flowers_y', 7, 5.9);
   o('flowers_o', 3.2, 5.6);
@@ -279,7 +278,6 @@ export function buildFarm(): GameMap {
     spawn: { x: 5, y: 7 },
     spots: [
       { id: 'ship', x: 7, y: 7 },
-      { id: 'shop', x: 9, y: 7 },
       // the farmhouse is the storehouse: its door and front wall
       { id: 'store', x: 4, y: 5 }, { id: 'store', x: 5, y: 5 }, { id: 'store', x: 6, y: 5 },
       { id: 'store', x: 5, y: 6 },

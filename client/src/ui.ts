@@ -112,7 +112,9 @@ export class UI {
 
   closePanel() { this.panel.hidden = true; this.panel.dataset.kind = ''; }
 
-  openShop(st: FarmState) {
+  private shopTitle = 'Cửa hàng';
+  openShop(st: FarmState, title?: string) {
+    if (title) this.shopTitle = title;
     this.panel.dataset.kind = 'shop';
     const rows = CROP_IDS.map((c) => {
       const d = CROPS[c];
@@ -127,7 +129,7 @@ export class UI {
         <span class="have">${st.inv[id] || 0}</span>
         <button data-item="${id}" data-n="1" ${st.coins < d.price ? 'disabled' : ''}>${d.price}<i class="coin"></i></button>
         <button data-item="${id}" data-n="5" ${st.coins < d.price * 5 ? 'disabled' : ''}>×5</button></div>`).join('');
-    this.showPanel('Cửa hàng', '<h3>Hạt giống</h3>' + rows + '<h3>Vật tư</h3>' + supplies);
+    this.showPanel(this.shopTitle, `<p class="sub">Bạn có <i class="coin"></i>${st.coins}</p><h3>Hạt giống</h3>` + rows + '<h3>Vật tư</h3>' + supplies);
   }
 
   openShip(st: FarmState) {

@@ -94,6 +94,15 @@ ui.update(store.st);
 ui.setNet(false);
 setInterval(() => store.tick(), 1000);
 
+/** Talk to an NPC: shopkeepers greet the player and open their shop. */
+function talkTo(n: Npc) {
+  if (n.def.shop) {
+    const tips = n.def.lines;
+    n.talk(Math.random() < 0.6 ? tips[0] : tips[1 + Math.floor(Math.random() * (tips.length - 1))]);
+    ui.openShop(store.st, `Cửa hàng ${n.def.name}`);
+  } else n.talk();
+}
+
 /** Perform the selected tool on a tile. */
 // A target is either a planting plot (plot-grid coords) or a map tile (spots).
 type Target = { plot: boolean; x: number; y: number };
@@ -256,7 +265,7 @@ function update(dt: number) {
   if (input.tap) {
     const w0 = screenToWorld(input.tap.x, input.tap.y);
     const tapped = npcs.find((m) => Math.abs(w0.x - m.x) < 14 && w0.y < m.y + 4 && w0.y > m.y - 44);
-    if (tapped && Math.hypot(tapped.x - player.x, tapped.y - player.y) < 60) { tapped.talk(); input.tap = null; }
+    if (tapped && Math.hypot(tapped.x - player.x, tapped.y - player.y) < 60) { talkTo(tapped); input.tap = null; }
   }
   if (input.tap) {
     const w = screenToWorld(input.tap.x, input.tap.y);
@@ -283,7 +292,7 @@ function update(dt: number) {
   }
   if (input.actionPressed && !player.busy) {
     const n = npcs.find((m) => Math.hypot(m.x - player.x, m.y - player.y) < 40);
-    if (n) { player.faceToward(n.x, n.y - 10); n.talk(); }
+    if (n) { player.faceToward(n.x, n.y - 10); talkTo(n); }
     else useTarget(target);
   }
   input.consume();

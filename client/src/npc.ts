@@ -9,6 +9,8 @@ export interface NpcDef {
   name: string;
   waypoints: [number, number][];  // tiles
   lines: string[];
+  /** talking opens this shop instead of cycling the lines */
+  shop?: boolean;
   /** stays on its first waypoint (only turns to face the player) */
   stationary?: boolean;
   facing?: number;
@@ -89,14 +91,16 @@ export const FARM_NPCS: NpcDef[] = [
     facing: 0,
     // 17% taller than the player (player idle 88px x1.35 -> 104px sprite x1.34)
     scale: 1.34,
+    shop: true,
     lines: [
+      'Cháu cần gì cứ chọn nhé! Hạt giống, phân bón, thuốc trừ sâu bác có đủ.',
       'Chào cháu! Bác là Bác Ba, coi nông trại này mấy chục năm rồi.',
       'Đất khô cằn thì dùng cuốc xới trước, rồi mới gieo hạt được.',
       'Mỗi lần cây lớn thêm một nấc là phải tưới lại. Trời mưa thì đỡ, mưa tưới hộ cho.',
       'Thấy chấm đỏ trên cây là có sâu đấy! Phun thuốc ngay kẻo cây đứng không lớn.',
       'Bón phân thì cây lớn nhanh hơn, lúc thu hoạch lại được gấp đôi.',
       'Thu hoạch xong đất lại khô cằn, nhớ cuốc lại nhé.',
-      'Nông sản đem bán ở rương vàng, hạt giống mua ở bao hạt cạnh đó.',
+      'Nông sản đem bán ở rương vàng trước nhà nhé.',
       'Cái chuồng bên kia bác đang dọn, sắp tới sẽ nuôi bò với lợn.',
     ],
   },
