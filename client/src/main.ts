@@ -316,21 +316,10 @@ function drawPlot(x: number, y: number, c: number, state: number, seed: number, 
   ctx.save();
   roundRect(x + g, y + g, w, w, r); ctx.clip();
   if (state === 0) {
-    // barren: pale, dusty, cracked
-    ctx.fillStyle = '#c0915b';
-    ctx.fillRect(x, y, c, c);
-    ctx.fillStyle = 'rgba(255,240,200,0.18)';
-    ctx.fillRect(x, y, c, c * 0.4);
-    ctx.strokeStyle = 'rgba(110,70,35,0.75)';
-    ctx.lineWidth = 0.8;
-    for (let k = 0; k < 3; k++) {
-      let px = x + 4 + rnd(k) * (c - 8), py = y + 4 + rnd(k + 9) * (c - 8);
-      ctx.beginPath(); ctx.moveTo(px, py);
-      for (let j = 0; j < 3; j++) { px += (rnd(k * 7 + j) - 0.5) * 9; py += (rnd(k * 5 + j + 3) - 0.5) * 9; ctx.lineTo(px, py); }
-      ctx.stroke();
-    }
-    ctx.fillStyle = 'rgba(150,140,125,0.9)';
-    for (let k = 0; k < 2; k++) ctx.fillRect(x + 4 + rnd(k + 20) * (c - 8), y + 4 + rnd(k + 30) * (c - 8), 1.5, 1.2);
+    // barren: cracked dry soil (user asset)
+    const f = atlas.frames['tex_dry'];
+    if (f) ctx.drawImage(atlas.img, f[0], f[1], f[4], f[5], x + g, y + g, w, w);
+    else { ctx.fillStyle = '#c0915b'; ctx.fillRect(x, y, c, c); }
   } else {
     const f = atlas.frames[state === 2 ? 'gt_furrow_wet' : 'gt_furrow'];
     if (f) ctx.drawImage(atlas.img, f[0], f[1], f[4] * 0.75, f[5] * 0.75, x + g, y + g, w, w);

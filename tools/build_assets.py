@@ -1087,6 +1087,11 @@ def main():
     import crops_cut
     cp = crops_cut.build(RES, T)
     images.update(cp); native.update(cp)
+    # barren / cracked soil for empty plots (user asset)
+    ds = Image.open(os.path.join(ROOT, 'assets/source/dry_soil.png')).convert('RGBA')
+    side = min(ds.size)
+    ds = ds.crop(((ds.width - side) // 2, (ds.height - side) // 2, (ds.width + side) // 2, (ds.height + side) // 2))
+    images['tex_dry'] = ds.resize((T * RES, T * RES), Image.NEAREST); native.add('tex_dry')
     images.update(s4_tiles()); native.update(S4_TILES); native.add('gt_furrow_wet')
     # crops render as 1 tile
     for name in list(images):
