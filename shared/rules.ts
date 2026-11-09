@@ -215,7 +215,7 @@ export function applyAction(
         if (!p || !p.c) return 'Không có gì để thu hoạch';
         if (p.s < RIPE) return 'Cây chưa chín';
         add(st.inv, p.c, p.f ? 2 : 1);
-        p.c = ''; p.s = 0; p.w = 0; p.f = 0; p.q = 0; p.d = 0;
+        delete st.plots[k];   // harvested soil turns barren: hoe it again before sowing
         break;
       case 'clear':
         if (!p) return 'Không có gì để dọn';
