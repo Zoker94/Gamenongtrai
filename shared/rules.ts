@@ -14,6 +14,7 @@ export interface CropDef {
 export const CROPS: Record<string, CropDef> = {
   rice:       { id: 'rice',       name: 'Lúa',      seedPrice: 8,  sellPrice: 22,  stageSecs: 20 },
   carrot:     { id: 'carrot',     name: 'Cà rốt',   seedPrice: 10, sellPrice: 25,  stageSecs: 20 },
+  cabbage:    { id: 'cabbage',    name: 'Cải bắp',  seedPrice: 15, sellPrice: 40,  stageSecs: 30 },
   turnip:     { id: 'turnip',     name: 'Củ cải',   seedPrice: 12, sellPrice: 30,  stageSecs: 25 },
   tomato:     { id: 'tomato',     name: 'Cà chua',  seedPrice: 20, sellPrice: 55,  stageSecs: 35 },
   strawberry: { id: 'strawberry', name: 'Dâu tây',  seedPrice: 30, sellPrice: 85,  stageSecs: 45 },

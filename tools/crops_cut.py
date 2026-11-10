@@ -36,6 +36,13 @@ LAYOUT = {
         'ripe': (50, 766, 335, 1034, 'plant'),
         'item': (1032, 786, 1334, 1034, 'item'),
     },
+    'cabbage': {
+        'seed': (1440, 160, 1560, 260, 'seedbrown'),
+        'g1': (50, 418, 335, 640, 'plant'), 'g2': (548, 418, 840, 640, 'plant'),
+        'g3': (1032, 418, 1334, 640, 'plant'), 'g4': (1665, 418, 1950, 640, 'plant'),
+        'ripe': (50, 780, 335, 1030, 'plant'),
+        'item': (500, 795, 835, 1035, 'item'),
+    },
 }
 
 
@@ -83,6 +90,8 @@ def cut(src, box, mode):
             r, g, b = p[:3]
             if mode == 'green':
                 keep = g > r + 15 and g > b + 15
+            elif mode == 'seedbrown':     # a pale seed lying on brown soil
+                keep = r > 150 and g > 115 and r - b < 110 and g - b > 20
             elif mode == 'grain':
                 keep = r > 160 and g > 140 and b > 90
             elif mode == 'plant':
