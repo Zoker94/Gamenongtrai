@@ -23,7 +23,18 @@ Khung hình: đứng 8 hướng, đi 8 hướng, thu hoạch, cuốc, tưới (�
 Biến thể màu trong `outfits.json`: `hue` (xoay sắc độ), `sat`/`val` (độ bão hoà/độ sáng), hoặc `tint` (nhuộm một màu, giữ bóng đổ).
 Chỉ điểm ảnh của chính món đồ bị đổi màu (không đụng tóc, mặt).
 
-## Món cũ (chỉ đứng + đi xuống)
+## Hướng trái = lật hướng phải
 
-`jacket_red_f`, `pants_red_f`: thư mục có `turnaround.gif` + `walk_<d>.gif`,
-cắt bằng `python tools/wear_cut.py <id> char_f red`.
+Nhân vật gốc nữ có hướng 5, 6, 7 (trái) đúng bằng hướng 3, 2, 1 lật ngang, nên chỉ cần
+transfer 5 hướng (0–4); `outfit_frames.py import` tự lật và căn các khung còn thiếu.
+
+## Biểu tượng cửa hàng
+
+`icons/<tên>.png`: icon 48px vẽ bằng PixelLab (`create_1_direction_object`, 16 icon một lượt).
+Món gốc dùng icon theo id (hoặc trường `"icon"`), biến thể đổi màu icon bằng code
+(hoặc trỏ `"icon"` sang một icon khác đã vẽ).
+
+## Bộ mặc định
+
+`outfit_default_f/m` (`"default": true`): áo thun trắng + quần short jean lấy thẳng từ
+nhân vật gốc, có sẵn cho mọi nhân vật (không bán).

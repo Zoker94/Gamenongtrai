@@ -1,13 +1,26 @@
 {
   "outfit_default_f": {
     "base": "char_f", "default": true,
-    "upper": {"id": "tee_white_f", "name": "Áo thun trắng"},
-    "lower": {"id": "shorts_denim_f", "name": "Quần short jean"}
+    "upper": {"id": "tee_white_f", "name": "Áo thun trắng", "icon": "tee_white"},
+    "lower": {"id": "shorts_denim_f", "name": "Quần short jean", "icon": "shorts_denim"}
   },
   "outfit_default_m": {
     "base": "char2", "default": true,
-    "upper": {"id": "tee_white_m", "name": "Áo thun trắng"},
-    "lower": {"id": "shorts_denim_m", "name": "Quần short jean"}
+    "upper": {"id": "tee_white_m", "name": "Áo thun trắng", "icon": "tee_white"},
+    "lower": {"id": "shorts_denim_m", "name": "Quần short jean", "icon": "shorts_denim"}
+  },
+  "outfit_redset_f": {
+    "base": "char_f", "pixellab": "f5eb3114-4748-44b8-b129-cac80be9d31f", "tol": 44,
+    "upper": {"id": "jacket_red_f", "name": "Áo khoác đỏ", "price": 50, "variants": [
+      {"id": "jacket_navy_f", "name": "Áo khoác xanh than", "price": 50, "tint": "#2f4170"},
+      {"id": "jacket_black_f", "name": "Áo khoác đen", "price": 50, "tint": "#34343c"},
+      {"id": "jacket_mustard_f", "name": "Áo khoác vàng mù tạt", "price": 50, "tint": "#d0a12c"}
+    ]},
+    "lower": {"id": "pants_red_f", "name": "Quần dài đỏ", "price": 40, "variants": [
+      {"id": "pants_black_f", "name": "Quần dài đen", "price": 40, "tint": "#33333a"},
+      {"id": "pants_beige_f", "name": "Quần dài be", "price": 40, "tint": "#c9b08a"},
+      {"id": "pants_navy_f", "name": "Quần dài xanh than", "price": 40, "tint": "#2c3c66"}
+    ]}
   },
   "outfit_plaid_f": {
     "base": "char_f", "pixellab": "f68acca9-72f1-4594-8f4a-23dab846ffb9",
@@ -16,7 +29,7 @@
       {"id": "shirt_plaid_green_f", "name": "Sơ mi caro xanh lá", "price": 60, "hue": -85}
     ]},
     "lower": {"id": "jeans_blue_f", "name": "Quần jean xanh", "price": 50, "variants": [
-      {"id": "jeans_black_f", "name": "Quần jean đen", "price": 50, "tint": "#3b3b47"}
+      {"id": "jeans_black_f", "name": "Quần jean đen", "price": 50, "tint": "#3b3b47", "icon": "jeans_black_m"}
     ]}
   },
   "outfit_hoodie_f": {
@@ -56,7 +69,7 @@
       {"id": "denimshirt_white_m", "name": "Sơ mi trắng", "price": 65, "sat": 0.06, "val": 2.1}
     ]},
     "lower": {"id": "jeans_black_m", "name": "Quần jean đen", "price": 55, "variants": [
-      {"id": "jeans_blue_m", "name": "Quần jean xanh", "price": 55, "tint": "#3f6aa6"}
+      {"id": "jeans_blue_m", "name": "Quần jean xanh", "price": 55, "tint": "#3f6aa6", "icon": "jeans_blue_f"}
     ]}
   },
   "outfit_jacket_m": {

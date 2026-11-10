@@ -63,8 +63,6 @@ export const ownsWear = (st: FarmState, id: string) => !!(WEARABLES[id]?.default
  *  inv['wear:<id>']. Outfits made with PixelLab come from shared/wearables.ts
  *  (generated from assets/source/wear/outfits.json by tools/wear_cut.py). */
 export const WEARABLES: Record<string, Wearable> = {
-  jacket_red_f: { name: 'Áo khoác đỏ', slot: 'shirt', icon: 'wri_jacket_red_f', gender: 'f', price: 50 },
-  pants_red_f:  { name: 'Quần dài đỏ', slot: 'pants', icon: 'wri_pants_red_f',  gender: 'f', price: 40 },
   ...OUTFIT_WEARABLES,
 };
 const PEST_CHANCE = 0.22;

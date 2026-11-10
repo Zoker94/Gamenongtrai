@@ -241,7 +241,7 @@ def recolor(im, mask, spec):
     return out
 
 
-def outfit_palette(src_dir, base, lower):
+def outfit_palette(src_dir, base, lower, tol=24):
     """the garment's own colours, from the standing frames: a body band that
     is all garment (below the head for tops, above the shoes for bottoms).
     Variants recolour only pixels near these colours, so a face the AI redrew
@@ -260,7 +260,7 @@ def outfit_palette(src_dir, base, lower):
                 pal.add(sp[x, y][:3])
     memo = {}
 
-    def near(c, tol=24):
+    def near(c, tol=tol):
         if c not in memo:
             memo[c] = min((abs(c[0] - p[0]) + abs(c[1] - p[1]) + abs(c[2] - p[2]) for p in pal), default=999)
         return memo[c] <= tol
@@ -275,7 +275,7 @@ def cut_outfit(oid, spec):
     src_dir = os.path.join(wdir, oid, 'src')
     base = base_frames(spec['base'])
     parts = [(p, p == 'lower', spec[p]) for p in ('upper', 'lower') if spec.get(p)]
-    near = {p: outfit_palette(src_dir, base, lo) for p, lo, _ in parts}
+    near = {p: outfit_palette(src_dir, base, lo, spec.get('tol', 24)) for p, lo, _ in parts}
     ids = {p: [(it['id'], None)] + [(v['id'], v) for v in it.get('variants', [])] for p, _, it in parts}
     for p in ids:
         for iid, _ in ids[p]:
@@ -323,7 +323,7 @@ def cut_outfit(oid, spec):
                     op[x, y] = sp[x, y]
             mask = {q for q in changed if (q[1] >= w) == lower
                     and (q[1] >= neck or is_shirt(bp[q]) or vivid(sp[q]))
-                    and nr(sp[q][:3]) and not is_hair(bp[q])} - (moved if lower else set())
+                    and nr(sp[q][:3]) and (lower or not is_hair(bp[q]))} - (moved if lower else set())
             if not lower:
                 mask |= moved
             # a white garment over the bare white T-shirt / socks hardly
@@ -377,6 +377,34 @@ def cut_default(oid, spec):
     print(oid, '->', spec['upper']['id'], spec['lower']['id'], '(bare character halves)')
 
 
+def make_icons(spec):
+    """shop icons drawn with PixelLab (assets/source/wear/icons/<name>.png, one
+    per base garment; "icon" in outfits.json names it, else the item id).
+    Colour variants get the base icon recoloured with the variant's own rule."""
+    wdir = os.path.join(ROOT, 'assets/source/wear')
+    for p in ('upper', 'lower'):
+        it = spec.get(p)
+        if not it:
+            continue
+        src = os.path.join(wdir, 'icons', it.get('icon', it['id']) + '.png')
+        if not os.path.exists(src):
+            continue
+        ic = Image.open(src).convert('RGBA')
+        ic = ic.crop(ic.getchannel('A').getbbox())
+        px = ic.load()
+        # the cloth: everything but the dark outline
+        mask = {(x, y) for y in range(ic.height) for x in range(ic.width) if px[x, y][3] and max(px[x, y][:3]) > 70}
+        for v in [None] + it.get('variants', []):
+            iid = v['id'] if v else it['id']
+            if v and v.get('icon'):     # a variant that matches another drawn icon
+                out = Image.open(os.path.join(wdir, 'icons', v['icon'] + '.png')).convert('RGBA')
+                out = out.crop(out.getchannel('A').getbbox())
+            else:
+                out = recolor(ic, mask, {k: x for k, x in v.items() if k != '_ref'}) if v else ic
+            if os.path.isdir(os.path.join(wdir, iid)):
+                out.save(os.path.join(wdir, iid, 'icon.png'))
+
+
 def cut_outfits(only=None):
     import json
     cat = json.load(open(os.path.join(ROOT, 'assets/source/wear/outfits.json'), encoding='utf-8'))
@@ -387,6 +415,7 @@ def cut_outfits(only=None):
             cut_default(oid, spec)
         elif os.path.isdir(os.path.join(ROOT, 'assets/source/wear', oid, 'src')):
             cut_outfit(oid, spec)
+        make_icons(spec)
     write_catalog(cat)
 
 

@@ -120,6 +120,31 @@ def do_import(base_folder, plan_path, res_dir, outfit_dir):
             out.save(os.path.join(dst, f"{it['anim']}_{it['d']}_{it['i']}.png"))
             n += 1
     print(n, 'frames ->', dst)
+    mirror_missing(base_folder, dst)
+
+
+def mirror_missing(base_folder, dst):
+    """left-facing frames (5 up-left, 6 left, 7 down-left) that were not
+    generated: the right-facing frame (3, 2, 1) mirrored, shifted onto the
+    bare frame (the base character's left side is its right side mirrored),
+    so only five directions need PixelLab"""
+    from PIL import ImageOps
+    n = 0
+    for (a, d, i, b) in frames_of(base_folder):
+        if d not in (5, 6, 7):
+            continue
+        out = os.path.join(dst, f'{a}_{d}_{i}.png')
+        src = os.path.join(dst, f'{a}_{8 - d}_{i}.png')
+        if os.path.exists(out) or not os.path.exists(src):
+            continue
+        m = ImageOps.mirror(Image.open(src).convert('RGBA'))
+        ba, ma = b.getchannel('A').load(), m.getchannel('A').load()
+        W, H = b.size
+        pts = [(x, y) for y in range(H) for x in range(W) if ma[x, y]]
+        best = max(((sum(1 for x, y in pts if 0 <= x + dx < W and ba[x + dx, y]), dx) for dx in range(-6, 7)))[1]
+        o = Image.new('RGBA', b.size, (0, 0, 0, 0)); o.alpha_composite(m, (best, 0) if best >= 0 else (0, 0)) if best >= 0 else o.alpha_composite(m.crop((-best, 0, W, H)), (0, 0))
+        o.save(out); n += 1
+    print(n, 'left-facing frames mirrored')
 
 
 if __name__ == '__main__':
