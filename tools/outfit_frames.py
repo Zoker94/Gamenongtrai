@@ -79,6 +79,24 @@ def export(base_folder, out_dir):
     print(len(fs), 'frames in', len(plan), 'batches ->', out_dir)
 
 
+def clear_background(im, tol=24):
+    """transfer_outfit now and then returns a batch on an opaque (white)
+    background: flood it away from the borders (the sprite's dark outline
+    stops the fill)"""
+    from collections import deque
+    px = im.load(); W, H = im.size
+    c0 = px[0, 0]
+    if not c0[3]:
+        return
+    near = lambda p: p[3] and abs(p[0] - c0[0]) + abs(p[1] - c0[1]) + abs(p[2] - c0[2]) <= tol
+    q = deque([(x, y) for x in range(W) for y in (0, H - 1)] + [(x, y) for y in range(H) for x in (0, W - 1)])
+    while q:
+        x, y = q.popleft()
+        if 0 <= x < W and 0 <= y < H and near(px[x, y]):
+            px[x, y] = (0, 0, 0, 0)
+            q.extend(((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)))
+
+
 def do_import(base_folder, plan_path, res_dir, outfit_dir):
     plan = json.load(open(plan_path))
     bf = {(a, d, i): f for a, d, i, f in frames_of(base_folder)}
@@ -94,6 +112,7 @@ def do_import(base_folder, plan_path, res_dir, outfit_dir):
             r = Image.open(rp).convert('RGBA')
             if r.size != (N, N):
                 r = r.resize((N, N), Image.NEAREST)
+            clear_background(r)
             out = base.copy()
             ox, oy = it['ox'], it['oy']
             out.paste(Image.new('RGBA', (N, N), (0, 0, 0, 0)), (ox, oy))

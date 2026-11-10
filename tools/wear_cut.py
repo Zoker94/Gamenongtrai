@@ -183,6 +183,16 @@ def vivid(p):
     return colorsys.rgb_to_hsv(p[0] / 255, p[1] / 255, p[2] / 255)[1] > 0.6 and max(p[:3]) > 110
 
 
+def near_water(px, x, y, W, H, r=2):
+    """watering-can water (and its white foam) around a pixel of the bare frame"""
+    for yy in range(max(0, y - r), min(H, y + r + 1)):
+        for xx in range(max(0, x - r), min(W, x + r + 1)):
+            p = px[xx, yy]
+            if p[3] and p[2] > 150 and p[2] - p[0] > 50:
+                return True
+    return False
+
+
 def is_shirt(p):
     """the bare character's white T-shirt"""
     return p[3] and min(p[:3]) > 150 and max(p[:3]) - min(p[:3]) < 40
@@ -280,6 +290,11 @@ def cut_outfit(oid, spec):
                     mask = {p for p in cloth_mask(s, b) if (p[1] >= w) == lower
                             and (p[1] >= neck or is_shirt(bp_[p]) or vivid(sp_[p]))
                             and near(sp_[p][:3]) and not is_hair(bp_[p])}
+                    # a white garment over the bare white T-shirt / socks hardly
+                    # differs from them: take those pixels by colour alone
+                    mask |= {(x, y) for y in (range(max(w, neck), s.height) if lower else range(neck, w))
+                             for x in range(s.width) if sp_[x, y][3] and is_shirt(bp_[x, y]) and near(sp_[x, y][:3])
+                             and not near_water(bp_, x, y, s.width, s.height)}
                 if var:
                     im = recolor(out, mask, var)
                 im.save(os.path.join(wdir, iid, name))
