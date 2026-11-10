@@ -177,6 +177,12 @@ def is_hair(p):
     return v < 0.5 and s > 0.25 and (h < 0.12 or h > 0.95)
 
 
+def vivid(p):
+    """strongly coloured cloth (a sleeve raised over the head), never hair or skin"""
+    import colorsys
+    return colorsys.rgb_to_hsv(p[0] / 255, p[1] / 255, p[2] / 255)[1] > 0.6 and max(p[:3]) > 110
+
+
 def is_shirt(p):
     """the bare character's white T-shirt"""
     return p[3] and min(p[:3]) > 150 and max(p[:3]) - min(p[:3]) < 40
@@ -272,7 +278,7 @@ def cut_outfit(oid, spec):
                     # above the shoulders only the bare shirt's white is replaced
                     neck = bt + (w - bt) * 55 // 100
                     mask = {p for p in cloth_mask(s, b) if (p[1] >= w) == lower
-                            and (p[1] >= neck or is_shirt(bp_[p]))
+                            and (p[1] >= neck or is_shirt(bp_[p]) or vivid(sp_[p]))
                             and near(sp_[p][:3]) and not is_hair(bp_[p])}
                 if var:
                     im = recolor(out, mask, var)

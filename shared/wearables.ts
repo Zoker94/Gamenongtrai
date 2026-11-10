@@ -7,4 +7,9 @@ export const OUTFIT_WEARABLES: Record<string, Wearable> = {
   shirt_plaid_green_f: { name: 'Sơ mi caro xanh lá', slot: 'shirt', icon: 'wri_shirt_plaid_green_f', gender: 'f', price: 60 },
   jeans_blue_f: { name: 'Quần jean xanh', slot: 'pants', icon: 'wri_jeans_blue_f', gender: 'f', price: 50 },
   jeans_black_f: { name: 'Quần jean đen', slot: 'pants', icon: 'wri_jeans_black_f', gender: 'f', price: 50 },
+  hoodie_orange_f: { name: 'Áo hoodie cam', slot: 'shirt', icon: 'wri_hoodie_orange_f', gender: 'f', price: 80 },
+  hoodie_purple_f: { name: 'Áo hoodie tím', slot: 'shirt', icon: 'wri_hoodie_purple_f', gender: 'f', price: 80 },
+  hoodie_teal_f: { name: 'Áo hoodie xanh ngọc', slot: 'shirt', icon: 'wri_hoodie_teal_f', gender: 'f', price: 80 },
+  cargo_khaki_f: { name: 'Quần kaki túi hộp', slot: 'pants', icon: 'wri_cargo_khaki_f', gender: 'f', price: 55 },
+  cargo_grey_f: { name: 'Quần túi hộp xám', slot: 'pants', icon: 'wri_cargo_grey_f', gender: 'f', price: 55 },
 };
