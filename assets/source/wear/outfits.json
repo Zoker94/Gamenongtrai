@@ -43,7 +43,7 @@
   "outfit_denim_m": {
     "base": "char2", "pixellab": "d266cd17-31fb-45b8-984f-132ac70ab6ea",
     "upper": {"id": "denimshirt_blue_m", "name": "Sơ mi jean", "price": 65, "variants": [
-      {"id": "denimshirt_white_m", "name": "Sơ mi trắng", "price": 65, "sat": 0.08, "val": 1.45}
+      {"id": "denimshirt_white_m", "name": "Sơ mi trắng", "price": 65, "sat": 0.06, "val": 2.1}
     ]},
     "lower": {"id": "jeans_black_m", "name": "Quần jean đen", "price": 55, "variants": [
       {"id": "jeans_blue_m", "name": "Quần jean xanh", "price": 55, "tint": "#3f6aa6"}
