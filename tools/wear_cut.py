@@ -151,6 +151,22 @@ def frame_waist(f):
     return bb[1] + (bb[3] - bb[1]) * 58 // 100
 
 
+def extend_hem(im, base, w, rows=8):
+    """the bare T-shirt of the male character hangs over his shorts, below
+    the waist: a top covers that strip by stretching its own lowest pixel of
+    each column down over it (no white shirt peeking out under a top)"""
+    px, bp = im.load(), base.load()
+    for x in range(im.width):
+        src = next((px[x, y] for y in range(w - 1, max(-1, w - 4), -1) if px[x, y][3]), None)
+        if src is None:
+            continue
+        for y in range(w, min(im.height, w + rows)):
+            if is_shirt(bp[x, y]):
+                px[x, y] = src
+            elif bp[x, y][3] and not is_shirt(bp[x, y]) and y > w + 1:
+                break
+
+
 def cloth_mask(src, base, thr=70):
     """pixels the outfit changed (vs the bare frame at the same spot)"""
     sp, bp = src.load(), base.load(); W, H = src.size
@@ -297,6 +313,9 @@ def cut_outfit(oid, spec):
                              and not near_water(bp_, x, y, s.width, s.height)}
                 if var:
                     im = recolor(out, mask, var)
+                if not lower:
+                    im = im.copy() if im is out else im
+                    extend_hem(im, b, w)
                 im.save(os.path.join(wdir, iid, name))
                 if a == 'idle' and d == 0:     # shop icon: the garment alone, facing us
                     m = mask

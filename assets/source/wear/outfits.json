@@ -33,8 +33,8 @@
   "outfit_flannel_m": {
     "base": "char2", "pixellab": "090092ea-b3c8-4055-a6a0-75b8ce90ad83",
     "upper": {"id": "flannel_green_m", "name": "Áo caro xanh lá", "price": 60, "variants": [
-      {"id": "flannel_red_m", "name": "Áo caro đỏ", "price": 60, "hue": -120},
-      {"id": "flannel_blue_m", "name": "Áo caro xanh dương", "price": 60, "hue": 95}
+      {"id": "flannel_red_m", "name": "Áo caro đỏ", "price": 60, "tint": "#b8392e"},
+      {"id": "flannel_blue_m", "name": "Áo caro xanh dương", "price": 60, "tint": "#3b62b0"}
     ]},
     "lower": {"id": "trousers_brown_m", "name": "Quần tây nâu", "price": 50, "variants": [
       {"id": "trousers_navy_m", "name": "Quần tây xanh than", "price": 50, "tint": "#2e3f66"}
