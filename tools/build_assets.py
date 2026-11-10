@@ -297,6 +297,7 @@ def cut_player_walk():
 
 ANCHORS = {}   # sprite name -> px (atlas) the image extends below its anchor
 WAIST = {}     # body frame -> waist line, fraction of the frame height from its bottom
+WEAR = {}      # clothing item -> {frame name: (image, px below the feet line)}
 
 
 def cut_char2(folder='char2', prefix='pl4'):
@@ -340,75 +341,83 @@ def cut_char2(folder='char2', prefix='pl4'):
             out[f'{prefix}_{d}_i{i}'] = place(f, cx)
         for i, f in enumerate(walk):
             out[f'{prefix}_{d}_w{i}'] = place(f, cx)
-        # clothing = body halves (tools/wear_cut.py): wh_<id>_<d>_i (standing) and
-        # wh_<id>_<d>_w<i> (walking), each on the canvas of the body frame it
-        # replaces half of. WAIST[frame] = waist line as a fraction of the frame
-        # height from its bottom, so the game can split the bare body there.
+        # Clothing = body halves (tools/wear_cut.py), one small atlas per item
+        # (client/public/assets/wear/<id>.webp, loaded when worn): frames
+        # wh_<id>_<d>_i (standing) and wh_<id>_<d>_<tag><i> (w walk, h harvest,
+        # g hoe, u water), each anchored at the feet line of the body frame it
+        # replaces half of. WAIST[frame] = waist line as a fraction of the body
+        # image height from its bottom, so the game splits the bare body there.
         import wear_cut
+        geo = []   # (tag, i, frame 2x, image top, image bottom, feet line)
         for tag, fl in (('i', idle), ('w', walk)):
             for i, f in enumerate(fl):
-                small = f.resize((f.width // 2, f.height // 2), Image.NEAREST)
                 fb = f.getchannel('A').getbbox()
-                wy = wear_cut.waist_row(small) * 2
-                WAIST[f'{prefix}_{d}_{tag}{i}'] = round((fb[3] - wy) / (fb[3] - fb[1]), 4)
-        sfx = '_f' if folder == 'char_f' else '_m'
-        wdir = os.path.join(ROOT, 'assets/source/wear')
-
-        def wear_frame(L, f):
-            L = L.resize((L.width * 2, L.height * 2), Image.NEAREST)
-            fb = f.getchannel('A').getbbox(); lb = L.getchannel('A').getbbox()
-            if not lb:
-                return None, 0
-            hwf = max(cx - fb[0], fb[2] - cx) + 1
-            hw = max(hwf, cx - lb[0] + 1, lb[2] - cx + 1); hw += (hw - hwf) % 2
-            top, bot = min(lb[1], fb[1]), max(lb[3], fb[3])
-            im = Image.new('RGBA', (hw * 2, bot - top), (0, 0, 0, 0))
-            im.paste(L.crop((cx - hw, top, cx + hw, bot)), (0, 0))
-            return im, bot - fb[3]
-
-        for item in sorted(os.listdir(wdir)) if os.path.isdir(wdir) else []:
-            if not item.endswith(sfx):
-                continue
-            jobs = [(f'idle_{d}.png', idle[0], f'wh_{item}_{d}_i')]
-            jobs += [(f'walk_{d}_{i}.png', f, f'wh_{item}_{d}_w{i}') for i, f in enumerate(walk)]
-            for fn, f, name in jobs:
-                lpth = os.path.join(wdir, item, fn)
-                if not os.path.exists(lpth):
-                    continue
-                im, below = wear_frame(Image.open(lpth).convert('RGBA'), f)
-                if im is None:
-                    continue
-                out[name] = im
-                if below:
-                    ANCHORS[name] = below
-            ip = os.path.join(wdir, item, 'turnaround.gif')
-            if d == 0 and os.path.exists(ip):         # icon: the item's front view
-                t = Image.open(ip); t.seek(0); t = t.convert('RGBA'); tp = t.load()
-                for yy in range(t.height):           # the garment alone
-                    for xx in range(t.width):
-                        if tp[xx, yy][3] and not wear_cut.RULES['red'](tp[xx, yy]):
-                            tp[xx, yy] = (0, 0, 0, 0)
-                t = t.resize((t.width * 2, t.height * 2), Image.NEAREST)
-                out[f'wri_{item}'] = t.crop(t.getchannel('A').getbbox())
+                geo.append((tag, i, f, fb[1], fb[3], fb[3]))
         # harvest (pick up a crate): same canvas position as the idle frames,
         # bottom cut at the idle feet line so the body does not jump
+        base_y = max(f.getchannel('A').getbbox()[3] for f in idle)
         for act, tag in (('harvest', 'h'), ('hoe', 'g'), ('water', 'u')):
-          hp = os.path.join(base, f'{act}_{d}.gif')
-          if not os.path.exists(hp):
-              continue
-          base_y = max(f.getchannel('A').getbbox()[3] for f in idle)
-          for i, f in enumerate(load(hp)):
-              # watering: keep the water that falls below the feet line; the
-              # extra height is stored as an anchor offset (ANCHORS)
-              bot = max(base_y, f.getchannel('A').getbbox()[3]) if tag == 'u' else base_y
-              f2 = f.crop((0, 0, f.width, bot))
-              bb2 = f2.getchannel('A').getbbox()
-              hw = max(cx - bb2[0], bb2[2] - cx) + 1
-              im = Image.new('RGBA', (hw * 2, bot - bb2[1]), (0, 0, 0, 0))
-              im.paste(f2.crop((bb2[0], bb2[1], bb2[2], bot)), (hw - (cx - bb2[0]), 0))
-              out[f'{prefix}_{d}_{tag}{i}'] = im
-              if bot > base_y:
-                  ANCHORS[f'{prefix}_{d}_{tag}{i}'] = bot - base_y
+            hp = os.path.join(base, f'{act}_{d}.gif')
+            if not os.path.exists(hp):
+                continue
+            for i, f in enumerate(load(hp)):
+                # watering: keep the water that falls below the feet line; the
+                # extra height is stored as an anchor offset (ANCHORS)
+                bot = max(base_y, f.getchannel('A').getbbox()[3]) if tag == 'u' else base_y
+                f2 = f.crop((0, 0, f.width, bot))
+                bb2 = f2.getchannel('A').getbbox()
+                hw = max(cx - bb2[0], bb2[2] - cx) + 1
+                im = Image.new('RGBA', (hw * 2, bot - bb2[1]), (0, 0, 0, 0))
+                im.paste(f2.crop((bb2[0], bb2[1], bb2[2], bot)), (hw - (cx - bb2[0]), 0))
+                out[f'{prefix}_{d}_{tag}{i}'] = im
+                if bot > base_y:
+                    ANCHORS[f'{prefix}_{d}_{tag}{i}'] = bot - base_y
+                geo.append((tag, i, f, bb2[1], bot, base_y))
+        for tag, i, f, top, bot, foot in geo:
+            small = f.resize((f.width // 2, f.height // 2), Image.NEAREST)
+            wy = wear_cut.frame_waist(small) * 2
+            WAIST[f'{prefix}_{d}_{tag}{i}'] = round((bot - wy) / (bot - top), 4)
+
+        sfx = '_f' if folder == 'char_f' else '_m'
+        wdir = os.path.join(ROOT, 'assets/source/wear')
+        files = {'i': 'idle_{d}.png', 'w': 'walk_{d}_{i}.png', 'h': 'harvest_{d}_{i}.png',
+                 'g': 'hoe_{d}_{i}.png', 'u': 'water_{d}_{i}.png'}
+        for item in sorted(os.listdir(wdir)) if os.path.isdir(wdir) else []:
+            if not item.endswith(sfx) or not os.path.isdir(os.path.join(wdir, item)):
+                continue
+            dst = WEAR.setdefault(item, {})
+            for tag, i, f, top, bot, foot in geo:
+                if tag == 'i' and i:
+                    continue
+                lpth = os.path.join(wdir, item, files[tag].format(d=d, i=i))
+                if not os.path.exists(lpth):
+                    continue
+                L = Image.open(lpth).convert('RGBA')
+                L = L.resize((L.width * 2, L.height * 2), Image.NEAREST)
+                lb = L.getchannel('A').getbbox()
+                if not lb:
+                    continue
+                hw = max(cx - lb[0], lb[2] - cx) + 1
+                wb = max(lb[3], foot)
+                im = Image.new('RGBA', (hw * 2, wb - lb[1]), (0, 0, 0, 0))
+                im.paste(L.crop((cx - hw, lb[1], cx + hw, wb)), (0, 0))
+                name = f'wh_{item}_{d}_i' if tag == 'i' else f'wh_{item}_{d}_{tag}{i}'
+                dst[name] = (im, wb - foot)
+            if d == 0:                                   # shop icon (main atlas)
+                ip = os.path.join(wdir, item, 'icon.png')
+                tp = os.path.join(wdir, item, 'turnaround.gif')
+                if os.path.exists(ip):
+                    t = Image.open(ip).convert('RGBA')
+                elif os.path.exists(tp):                 # older items: the red garment alone
+                    t = Image.open(tp); t.seek(0); t = t.convert('RGBA'); px_ = t.load()
+                    for yy in range(t.height):
+                        for xx in range(t.width):
+                            if px_[xx, yy][3] and not wear_cut.RULES['red'](px_[xx, yy]):
+                                px_[xx, yy] = (0, 0, 0, 0)
+                else:
+                    continue
+                t = t.resize((t.width * 2, t.height * 2), Image.NEAREST)
+                out[f'wri_{item}'] = t.crop(t.getchannel('A').getbbox())
     return out
 
 
@@ -1060,12 +1069,12 @@ GLOSSY = ('cp_', 'flower', 'flowers_', 'd_flower', 'd_clover', 'd_tuft', 'd_spro
           'bush', 'tree', 'trees_', 'forest_')
 
 
-def pack(images, pad=3):
+def pack(images, pad=3, width=3072):
     """Shelf packer. Every sprite gets a `pad`-px border made of its own edge
     pixels (extrusion): lossy WebP and texture filtering then never bleed a
     neighbour's colours into tiles/patterns (no seams, no grey lines)."""
     items = sorted(images.items(), key=lambda kv: (-kv[1].height, -kv[1].width))
-    W = 3072
+    W = width
     x = y = shelf = 0
     rects = {}
     for name, im in items:
@@ -1250,6 +1259,22 @@ def main():
     with open(os.path.join(OUT_DIR, 'atlas.json'), 'w') as f:
         json.dump({'w': atlas.width, 'h': atlas.height, 'res': RES, 'frames': rects, 'masks': masks, 'anchors': ANCHORS, 'waist': WAIST}, f, separators=(',', ':'))
     print(f'atlas {atlas.width}x{atlas.height} @{RES}x, {len(rects)} sprites, {os.path.getsize(out_path)//1024} KB')
+    # one small atlas per clothing item, loaded by the game only when worn
+    wout = os.path.join(OUT_DIR, 'wear')
+    os.makedirs(wout, exist_ok=True)
+    for f in os.listdir(wout):
+        os.remove(os.path.join(wout, f))
+    total = 0
+    for item, fr in sorted(WEAR.items()):
+        if not fr:
+            continue
+        wa, wr = pack({k: v[0] for k, v in fr.items()}, pad=1, width=1024)
+        wa.save(os.path.join(wout, f'{item}.webp'), 'WEBP', lossless=True, method=6)
+        with open(os.path.join(wout, f'{item}.json'), 'w') as f:
+            json.dump({'w': wa.width, 'h': wa.height, 'res': RES, 'frames': wr,
+                       'anchors': {k: v[1] for k, v in fr.items() if v[1]}}, f, separators=(',', ':'))
+        total += os.path.getsize(os.path.join(wout, f'{item}.webp'))
+    print(f'wear: {len(WEAR)} items, {total // 1024} KB')
 
     if '--preview' in sys.argv:
         out = sys.argv[sys.argv.index('--preview') + 1]

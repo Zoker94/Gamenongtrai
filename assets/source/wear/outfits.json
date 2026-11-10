@@ -1,0 +1,62 @@
+{
+  "outfit_plaid_f": {
+    "base": "char_f", "pixellab": "f68acca9-72f1-4594-8f4a-23dab846ffb9",
+    "upper": {"id": "shirt_plaid_blue_f", "name": "Sơ mi caro xanh dương", "price": 60, "variants": [
+      {"id": "shirt_plaid_pink_f", "name": "Sơ mi caro hồng", "price": 60, "hue": 125},
+      {"id": "shirt_plaid_green_f", "name": "Sơ mi caro xanh lá", "price": 60, "hue": -85}
+    ]},
+    "lower": {"id": "jeans_blue_f", "name": "Quần jean xanh", "price": 50, "variants": [
+      {"id": "jeans_black_f", "name": "Quần jean đen", "price": 50, "tint": "#3b3b47"}
+    ]}
+  },
+  "outfit_hoodie_f": {
+    "base": "char_f", "pixellab": "a7566366-c7da-432c-b6ec-f12bad7ffb72",
+    "upper": {"id": "hoodie_orange_f", "name": "Áo hoodie cam", "price": 80, "variants": [
+      {"id": "hoodie_purple_f", "name": "Áo hoodie tím", "price": 80, "hue": -105},
+      {"id": "hoodie_teal_f", "name": "Áo hoodie xanh ngọc", "price": 80, "hue": 150}
+    ]},
+    "lower": {"id": "cargo_khaki_f", "name": "Quần kaki túi hộp", "price": 55, "variants": [
+      {"id": "cargo_grey_f", "name": "Quần túi hộp xám", "price": 55, "sat": 0.15, "val": 0.85}
+    ]}
+  },
+  "outfit_blouse_f": {
+    "base": "char_f", "pixellab": "910ba638-aae8-4064-9710-3d5ff312aaab",
+    "upper": {"id": "blouse_pink_f", "name": "Áo cánh hồng", "price": 60, "variants": [
+      {"id": "blouse_yellow_f", "name": "Áo cánh vàng", "price": 60, "hue": 70},
+      {"id": "blouse_mint_f", "name": "Áo cánh xanh bạc hà", "price": 60, "hue": 175}
+    ]},
+    "lower": {"id": "skirt_white_f", "name": "Váy dài trắng", "price": 70, "variants": [
+      {"id": "skirt_blue_f", "name": "Váy dài xanh da trời", "price": 70, "tint": "#7fb2e0"},
+      {"id": "skirt_red_f", "name": "Váy dài đỏ", "price": 70, "tint": "#c8463c"}
+    ]}
+  },
+  "outfit_flannel_m": {
+    "base": "char2", "pixellab": "090092ea-b3c8-4055-a6a0-75b8ce90ad83",
+    "upper": {"id": "flannel_green_m", "name": "Áo caro xanh lá", "price": 60, "variants": [
+      {"id": "flannel_red_m", "name": "Áo caro đỏ", "price": 60, "hue": -120},
+      {"id": "flannel_blue_m", "name": "Áo caro xanh dương", "price": 60, "hue": 95}
+    ]},
+    "lower": {"id": "trousers_brown_m", "name": "Quần tây nâu", "price": 50, "variants": [
+      {"id": "trousers_navy_m", "name": "Quần tây xanh than", "price": 50, "tint": "#2e3f66"}
+    ]}
+  },
+  "outfit_denim_m": {
+    "base": "char2", "pixellab": "d266cd17-31fb-45b8-984f-132ac70ab6ea",
+    "upper": {"id": "denimshirt_blue_m", "name": "Sơ mi jean", "price": 65, "variants": [
+      {"id": "denimshirt_white_m", "name": "Sơ mi trắng", "price": 65, "sat": 0.08, "val": 1.45}
+    ]},
+    "lower": {"id": "jeans_black_m", "name": "Quần jean đen", "price": 55, "variants": [
+      {"id": "jeans_blue_m", "name": "Quần jean xanh", "price": 55, "tint": "#3f6aa6"}
+    ]}
+  },
+  "outfit_jacket_m": {
+    "base": "char2", "pixellab": "93f405fc-cfab-463c-9561-d7eb8e2975ab",
+    "upper": {"id": "jacket_yellow_m", "name": "Áo khoác vàng", "price": 90, "variants": [
+      {"id": "jacket_red_m", "name": "Áo khoác đỏ", "price": 90, "hue": -50},
+      {"id": "jacket_blue_m", "name": "Áo khoác xanh dương", "price": 90, "hue": 160}
+    ]},
+    "lower": {"id": "cargo_olive_m", "name": "Quần túi hộp xanh rêu", "price": 55, "variants": [
+      {"id": "cargo_tan_m", "name": "Quần túi hộp be", "price": 55, "tint": "#b39a6c"}
+    ]}
+  }
+}

@@ -1,6 +1,7 @@
 import { CROPS, CROP_IDS, SUPPLIES, WEAR_SLOTS, WEARABLES, needsAt, restMinutes, type FarmState } from '../../shared/rules.ts';
 import { type Atlas, iconCanvas } from './atlas.ts';
 import { type Settings, settings } from './settings.ts';
+import { wearFrame } from './wear.ts';
 
 export interface Slot { id: string; icon: string; label: string; count?: number }
 
@@ -228,23 +229,22 @@ export class UI {
   /** Character tab (tap the avatar): the character, its clothing slots and the
    *  wardrobe of owned clothes. Clothing items come later with their assets. */
   private lastSt: FarmState | null = null;
-  /** character + equipped clothes, all frames anchored at the same feet point */
-  private figure(names: string[], size: number): HTMLCanvasElement {
+  /** character + equipped clothes, all frames anchored at the same feet point.
+   *  part 'up' / 'lo': the bare body clipped above / below its waist */
+  private figure(layers: [Atlas, string, ('up' | 'lo')?][], size: number): HTMLCanvasElement {
     const px = size * 2, c = document.createElement('canvas');
     c.width = c.height = px;
-    const g = c.getContext('2d')!, a = this.atlas, ref = a.frames[`${this.me.sprite}_0_i0`];
+    const g = c.getContext('2d')!, ref = this.atlas.frames[`${this.me.sprite}_0_i0`];
     if (!ref) return c;
     const k = Math.min(px / ref[2], px / ref[3]) * 0.96, foot = px - 2;
     g.imageSmoothingEnabled = false;
-    for (const n0 of names) {
-      // 'name|up' / 'name|lo': the bare body clipped above / below its waist
-      const [n, part] = n0.split('|');
+    for (const [a, n, part] of layers) {
       const f = a.frames[n];
       if (!f) continue;
       const w = f[2] * k, h = f[3] * k, x = Math.round(px / 2 - w / 2), y = Math.round(foot - h + (f[6] || 0) * k);
       g.save();
       if (part) {
-        const cut = foot - (a.waist[n] || 0.45) * h;
+        const cut = foot + (f[6] || 0) * k - (a.waist[n] || 0.45) * h;
         g.beginPath(); part === 'up' ? g.rect(0, 0, px, cut + 0.5) : g.rect(0, cut - 0.5, px, px); g.clip();
       }
       g.drawImage(a.img, f[0], f[1], f[4], f[5], x, y, Math.round(w), Math.round(h));
@@ -252,12 +252,11 @@ export class UI {
     }
     return c;
   }
-  /** names for the wardrobe preview: [lower half, upper half] or the bare body */
-  private wearNames(st: FarmState, d = 0) {
-    const body = `${this.me.sprite}_${d}_i0`;
-    const h = (id?: string) => (id && this.atlas.frames[`wh_${id}_${d}_i`] ? `wh_${id}_${d}_i` : '');
-    const lo = h(st.wear?.pants), up = h(st.wear?.shirt);
-    return !lo && !up ? [body] : [lo || body + '|lo', up || body + '|up'];
+  /** layers for the wardrobe preview: [lower half, upper half] or the bare body */
+  private wearLayers(st: FarmState, d = 0): [Atlas, string, ('up' | 'lo')?][] {
+    const body = `${this.me.sprite}_${d}_i0`, a = this.atlas;
+    const lo = wearFrame(st.wear?.pants, body), up = wearFrame(st.wear?.shirt, body);
+    return !lo && !up ? [[a, body]] : [lo || [a, body, 'lo'], up || [a, body, 'up']];
   }
 
   /** Clothing shop (from the character tab). */
@@ -316,7 +315,7 @@ export class UI {
           <h3 class="wh">Tủ đồ <button class="shopbtn" data-wshop>Cửa hàng quần áo</button></h3><div class="grid">${items}</div></div>
       </div>`;
     this.showPanel('Nhân vật', body);
-    this.panel.querySelector('.fig')!.append(this.figure(this.wearNames(st), 96));
+    this.panel.querySelector('.fig')!.append(this.figure(this.wearLayers(st), 96));
   }
 
   private showPanel(title: string, body: string) {

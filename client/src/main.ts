@@ -10,6 +10,7 @@ import { WEATHER_NAME, Weather } from './weather.ts';
 import { updateOrientation } from './orient.ts';
 import { Store } from './net.ts';
 import { enterGame, logout } from './login.ts';
+import { onWearLoaded, preloadWear, wearFrame } from './wear.ts';
 import { Player } from './player.ts';
 import { FARM_NPCS, Npc } from './npc.ts';
 import { UI, vnd } from './ui.ts';
@@ -81,7 +82,10 @@ document.getElementById('loading')!.remove();
 
 // ---------------------------------------------------------------- state glue
 const spots = new Map(map.spots.map((s) => [key(s.x, s.y), s.id]));
-store.onChange = () => { ui.update(store.st); ui.refresh(store.st); };
+store.onChange = () => { ui.update(store.st); ui.refresh(store.st); preloadWear(Object.values(store.st.wear || {})); };
+// clothing atlases arrive on demand: fetch what is worn now, redraw previews when one lands
+preloadWear(Object.values(store.st.wear || {}));
+onWearLoaded(() => { if (ui.panel.dataset.kind === 'wear') ui.refresh(store.st); });
 store.onError = (m) => ui.toast(m);
 store.onNet = (on) => { ui.setNet(on); if (on) ui.toast('Đã kết nối máy chủ'); };
 // avatar -> character tab (clothing slots + wardrobe, logout)
@@ -533,16 +537,11 @@ function render(time: number) {
   for (const d of list) {
     if (d.name.startsWith(player.sprite + '_')) {
       // protagonist, dressed as two halves split at the waist: the shirt item
-      // replaces the upper half (wh_<id>_<d>_i / _w<i>), pants the lower half.
-      // A half without an item is the bare body, clipped at the waist line.
-      const m = /_(\d)_([iw])(\d+)$/.exec(d.name);
+      // replaces the upper half, pants the lower half, in every frame (stand,
+      // walk, harvest, hoe, water; see wear.ts). A half without an item (or
+      // whose atlas is still loading) is the bare body, clipped at the waist.
       const wear = store.st.wear || {};
-      const halfOf = (id: string | undefined) => {
-        if (!id || !m) return '';
-        const n = m[2] === 'i' ? `wh_${id}_${m[1]}_i` : `wh_${id}_${m[1]}_w${m[3]}`;
-        return atlas.frames[n] ? n : '';
-      };
-      const up = halfOf(wear.shirt), lo = halfOf(wear.pants);
+      const up = wearFrame(wear.shirt, d.name), lo = wearFrame(wear.pants, d.name);
       const f = atlas.frames[d.name], wf = atlas.waist[d.name];
       if ((!up && !lo) || !f || wf == null) drawAnchored(ctx, atlas, d.name, d.x, d.y, d.flip);
       else {
@@ -552,8 +551,8 @@ function render(time: number) {
           if (top) ctx.rect(d.x - 40, cut - 80, 80, 80.5); else ctx.rect(d.x - 40, cut - 0.5, 80, 80);
           ctx.clip(); drawAnchored(ctx, atlas, d.name, d.x, d.y, d.flip); ctx.restore();
         };
-        if (lo) drawAnchored(ctx, atlas, lo, d.x, d.y, d.flip); else bare(false);
-        if (up) drawAnchored(ctx, atlas, up, d.x, d.y, d.flip); else bare(true);
+        if (lo) drawAnchored(ctx, lo[0], lo[1], d.x, d.y, d.flip); else bare(false);
+        if (up) drawAnchored(ctx, up[0], up[1], d.x, d.y, d.flip); else bare(true);
       }
       continue;
     }

@@ -1,6 +1,7 @@
 // Game rules shared by client (prediction / offline mode) and server (authority).
 // Keep this file free of DOM / Node APIs.
 import { firstRainBetween } from './weather.ts';
+import { OUTFIT_WEARABLES } from './wearables.ts';
 
 export interface CropDef {
   id: string;
@@ -55,11 +56,14 @@ export const WEAR_SLOTS: { id: string; name: string }[] = [
   { id: 'shoes', name: 'Giày' },
   { id: 'acc', name: 'Phụ kiện' },
 ];
-/** Clothing catalog. Empty until the clothing assets arrive: add an entry per
- *  item (icon = atlas frame name), players own them as inv['wear:<id>']. */
-export const WEARABLES: Record<string, { name: string; slot: string; icon: string; gender?: 'm' | 'f'; price?: number }> = {
+export interface Wearable { name: string; slot: string; icon: string; gender?: 'm' | 'f'; price?: number }
+/** Clothing catalog (icon = atlas frame name), players own items as
+ *  inv['wear:<id>']. Outfits made with PixelLab come from shared/wearables.ts
+ *  (generated from assets/source/wear/outfits.json by tools/wear_cut.py). */
+export const WEARABLES: Record<string, Wearable> = {
   jacket_red_f: { name: 'Áo khoác đỏ', slot: 'shirt', icon: 'wri_jacket_red_f', gender: 'f', price: 50 },
   pants_red_f:  { name: 'Quần dài đỏ', slot: 'pants', icon: 'wri_pants_red_f',  gender: 'f', price: 40 },
+  ...OUTFIT_WEARABLES,
 };
 const PEST_CHANCE = 0.22;
 

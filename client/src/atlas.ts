@@ -46,10 +46,10 @@ async function readWithProgress(r: Response, onProgress?: (p: number) => void): 
   return new Blob(parts, { type: r.headers.get('content-type') || 'image/webp' });
 }
 
-export async function loadAtlas(base = '/assets/', onProgress?: (p: number) => void): Promise<Atlas> {
+export async function loadAtlas(base = '/assets/', onProgress?: (p: number) => void, name = 'atlas'): Promise<Atlas> {
   const [meta, blob] = await Promise.all([
-    fetchRetry(base + 'atlas.json').then((r) => r.json()),
-    fetchRetry(base + 'atlas.webp').then((r) => readWithProgress(r, onProgress)),
+    fetchRetry(base + name + '.json').then((r) => r.json()),
+    fetchRetry(base + name + '.webp').then((r) => readWithProgress(r, onProgress)),
   ]);
   // createImageBitmap decodes off the main thread where supported.
   let img: CanvasImageSource;
