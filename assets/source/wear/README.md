@@ -14,3 +14,7 @@ jacket_red_f: áo khoác đỏ của nhân vật nữ. Hiện chỉ có dáng đ
 Ảnh gốc vẽ riêng, không trùng điểm ảnh với nhân vật trong game: lớp áo được căn theo bàn chân, các điểm
 áo thun trắng của thân gốc lòi ra ngoài mép áo được phủ bằng màu áo gần nhất (áo trắng bên trong áo khoác mở
 vẫn giữ vì ảnh gốc cũng có).
+
+Công cụ: `python3 tools/wear_cut.py <id> <thư mục nhân vật> <luật màu>` (ví dụ `jacket_red_f char_f red`).
+Mọi món đồ đều đi qua bước dọn mép: điểm áo thun trắng của thân gốc lòi ra mép áo, và các chấm trắng nhỏ
+(<= 4 điểm ảnh) còn sót sát mép áo, được tô bằng màu áo gần nhất. Vùng trắng lớn có trong ảnh gốc được giữ.
