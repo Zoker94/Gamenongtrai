@@ -9,6 +9,8 @@ export interface Atlas {
   res: number;
   /** per-sprite walkability masks (rows of '0'/'1', 4px cells; 1 = water) */
   masks: Record<string, string[]>;
+  /** body frame -> waist line as a fraction of the frame height from its bottom (clothing halves) */
+  waist: Record<string, number>;
 }
 
 /** fetch with retries (flaky mobile networks, a server that is waking up). */
@@ -65,7 +67,7 @@ export async function loadAtlas(base = '/assets/', onProgress?: (p: number) => v
     const below = meta.anchors?.[k] ? meta.anchors[k] / res : 0;
     frames[k] = [x, y, w / res, h / res, w, h, below];
   }
-  return { img, frames, res, masks: meta.masks || {} };
+  return { img, frames, res, masks: meta.masks || {}, waist: meta.waist || {} };
 }
 
 /** Draw sprite with its bottom-centre at (x, y). */

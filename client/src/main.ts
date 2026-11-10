@@ -51,8 +51,6 @@ const store = new Store((x, y) => isTillable(map, x, y), map.starter, session.to
 store.onAuthFail = () => logout();
 if (new URLSearchParams(location.search).has('debug')) Object.assign(window, { __store: store });
 const playerName = session.profile.name;
-/** clothing draw order, bottom to top */
-const WEAR_ORDER = ['pants', 'shoes', 'shirt', 'acc', 'hat'];
 (document.getElementById('pname') as HTMLElement).textContent = playerName;
 const ui = new UI(atlas, session.profile.gender === 'f' && atlas.frames['portrait_f'] ? 'portrait_f' : 'portrait');
 const input = new Input(canvas, document.getElementById('stick')!, document.getElementById('knob')!, document.getElementById('act')!);
@@ -534,17 +532,28 @@ function render(time: number) {
 
   for (const d of list) {
     if (d.name.startsWith(player.sprite + '_')) {
-      // protagonist + clothing layers: wr_<id>_<d> (standing) / wr_<id>_<d>_w<i>
-      // (walking). Pants replace the lower body while walking: the body is drawn
-      // without its legs (wrb_...) and the pants frame brings its own legs.
+      // protagonist, dressed as two halves split at the waist: the shirt item
+      // replaces the upper half (wh_<id>_<d>_i / _w<i>), pants the lower half.
+      // A half without an item is the bare body, clipped at the waist line.
       const m = /_(\d)_([iw])(\d+)$/.exec(d.name);
       const wear = store.st.wear || {};
-      let body = d.name;
-      if (m && m[2] === 'w' && wear.pants && atlas.frames[`wrb_${wear.pants}_${m[1]}_w${m[3]}`]) body = `wrb_${wear.pants}_${m[1]}_w${m[3]}`;
-      drawAnchored(ctx, atlas, body, d.x, d.y, d.flip);
-      if (m) for (const sl of WEAR_ORDER) {
-        const id = wear[sl];
-        if (id) drawAnchored(ctx, atlas, m[2] === 'i' ? `wr_${id}_${m[1]}` : `wr_${id}_${m[1]}_w${m[3]}`, d.x, d.y, d.flip);
+      const halfOf = (id: string | undefined) => {
+        if (!id || !m) return '';
+        const n = m[2] === 'i' ? `wh_${id}_${m[1]}_i` : `wh_${id}_${m[1]}_w${m[3]}`;
+        return atlas.frames[n] ? n : '';
+      };
+      const up = halfOf(wear.shirt), lo = halfOf(wear.pants);
+      const f = atlas.frames[d.name], wf = atlas.waist[d.name];
+      if ((!up && !lo) || !f || wf == null) drawAnchored(ctx, atlas, d.name, d.x, d.y, d.flip);
+      else {
+        const cut = d.y + (f[6] || 0) - wf * f[3];
+        const bare = (top: boolean) => {
+          ctx.save(); ctx.beginPath();
+          if (top) ctx.rect(d.x - 40, cut - 80, 80, 80.5); else ctx.rect(d.x - 40, cut - 0.5, 80, 80);
+          ctx.clip(); drawAnchored(ctx, atlas, d.name, d.x, d.y, d.flip); ctx.restore();
+        };
+        if (lo) drawAnchored(ctx, atlas, lo, d.x, d.y, d.flip); else bare(false);
+        if (up) drawAnchored(ctx, atlas, up, d.x, d.y, d.flip); else bare(true);
       }
       continue;
     }

@@ -296,6 +296,7 @@ def cut_player_walk():
 
 
 ANCHORS = {}   # sprite name -> px (atlas) the image extends below its anchor
+WAIST = {}     # body frame -> waist line, fraction of the frame height from its bottom
 
 
 def cut_char2(folder='char2', prefix='pl4'):
@@ -337,62 +338,58 @@ def cut_char2(folder='char2', prefix='pl4'):
         cx = round(sum(feet_x(f) for f in frames) / len(frames))
         for i, f in enumerate(idle):
             out[f'{prefix}_{d}_i{i}'] = place(f, cx)
-        # clothing layers (assets/source/wear/<id>_<f|m>/idle_<d>.png, cut by
-        # tools/wear_cut.py on the same 68px canvas): same feet anchor and the
-        # same bottom line as the standing body, so they draw straight over it
+        for i, f in enumerate(walk):
+            out[f'{prefix}_{d}_w{i}'] = place(f, cx)
+        # clothing = body halves (tools/wear_cut.py): wh_<id>_<d>_i (standing) and
+        # wh_<id>_<d>_w<i> (walking), each on the canvas of the body frame it
+        # replaces half of. WAIST[frame] = waist line as a fraction of the frame
+        # height from its bottom, so the game can split the bare body there.
+        import wear_cut
+        for tag, fl in (('i', idle), ('w', walk)):
+            for i, f in enumerate(fl):
+                small = f.resize((f.width // 2, f.height // 2), Image.NEAREST)
+                fb = f.getchannel('A').getbbox()
+                wy = wear_cut.waist_row(small) * 2
+                WAIST[f'{prefix}_{d}_{tag}{i}'] = round((fb[3] - wy) / (fb[3] - fb[1]), 4)
         sfx = '_f' if folder == 'char_f' else '_m'
         wdir = os.path.join(ROOT, 'assets/source/wear')
-        bbb = idle[0].getchannel('A').getbbox()
-        hwb = max(cx - bbb[0], bbb[2] - cx) + 1
-        for item in sorted(os.listdir(wdir)) if os.path.isdir(wdir) else []:
-            lpth = os.path.join(wdir, item, f'idle_{d}.png')
-            if not item.endswith(sfx) or not os.path.exists(lpth):
-                continue
-            L = Image.open(lpth).convert('RGBA')
+
+        def wear_frame(L, f):
             L = L.resize((L.width * 2, L.height * 2), Image.NEAREST)
-            lb = L.getchannel('A').getbbox()
-            hw = max(hwb, cx - lb[0] + 1, lb[2] - cx + 1)
-            hw += (hw - hwb) % 2                     # keep the centre on the body's pixel grid
-            top = min(lb[1], bbb[1])
-            wim = Image.new('RGBA', (hw * 2, bbb[3] - top), (0, 0, 0, 0))
-            wim.paste(L.crop((cx - hw, top, cx + hw, bbb[3])), (0, 0))
-            out[f'wr_{item}_{d}'] = wim
-            if d == 0:                               # icon: the garment alone, front view
-                out[f'wri_{item}'] = L.crop(lb)
-        # clothing on the walk cycle: wr_<id>_<d>_w<i> (+ for pants, which replace
-        # the lower body: wrb_<id>_<d>_w<i> = the body frame without its legs)
+            fb = f.getchannel('A').getbbox(); lb = L.getchannel('A').getbbox()
+            if not lb:
+                return None, 0
+            hwf = max(cx - fb[0], fb[2] - cx) + 1
+            hw = max(hwf, cx - lb[0] + 1, lb[2] - cx + 1); hw += (hw - hwf) % 2
+            top, bot = min(lb[1], fb[1]), max(lb[3], fb[3])
+            im = Image.new('RGBA', (hw * 2, bot - top), (0, 0, 0, 0))
+            im.paste(L.crop((cx - hw, top, cx + hw, bot)), (0, 0))
+            return im, bot - fb[3]
+
         for item in sorted(os.listdir(wdir)) if os.path.isdir(wdir) else []:
             if not item.endswith(sfx):
                 continue
-            wp = os.path.join(wdir, item, f'walk_{d}.waist')
-            waist = list(map(int, open(wp).read().split())) if os.path.exists(wp) else None
-            for i, f in enumerate(walk):
-                lpth = os.path.join(wdir, item, f'walk_{d}_{i}.png')
+            jobs = [(f'idle_{d}.png', idle[0], f'wh_{item}_{d}_i')]
+            jobs += [(f'walk_{d}_{i}.png', f, f'wh_{item}_{d}_w{i}') for i, f in enumerate(walk)]
+            for fn, f, name in jobs:
+                lpth = os.path.join(wdir, item, fn)
                 if not os.path.exists(lpth):
                     continue
-                L = Image.open(lpth).convert('RGBA')
-                L = L.resize((L.width * 2, L.height * 2), Image.NEAREST)
-                fb = f.getchannel('A').getbbox()
-                hwf = max(cx - fb[0], fb[2] - cx) + 1
-                lb = L.getchannel('A').getbbox()
-                hw = max(hwf, cx - lb[0] + 1, lb[2] - cx + 1); hw += (hw - hwf) % 2
-                top, bot = min(lb[1], fb[1]), max(lb[3], fb[3])
-                wim = Image.new('RGBA', (hw * 2, bot - top), (0, 0, 0, 0))
-                wim.paste(L.crop((cx - hw, top, cx + hw, bot)), (0, 0))
-                # canvas bottom = the body frame's bottom; anything lower is an anchor offset
-                out[f'wr_{item}_{d}_w{i}'] = wim
-                if bot > fb[3]:
-                    ANCHORS[f'wr_{item}_{d}_w{i}'] = bot - fb[3]
-                if waist:
-                    body = f.copy(); bp = body.load()
-                    for y in range(waist[i] * 2, body.height):
-                        for x in range(body.width):
-                            bp[x, y] = (0, 0, 0, 0)
-                    bim = Image.new('RGBA', (hwf * 2, fb[3] - fb[1]), (0, 0, 0, 0))
-                    bim.paste(body.crop(fb), (hwf - (cx - fb[0]), 0))
-                    out[f'wrb_{item}_{d}_w{i}'] = bim
-        for i, f in enumerate(walk):
-            out[f'{prefix}_{d}_w{i}'] = place(f, cx)
+                im, below = wear_frame(Image.open(lpth).convert('RGBA'), f)
+                if im is None:
+                    continue
+                out[name] = im
+                if below:
+                    ANCHORS[name] = below
+            ip = os.path.join(wdir, item, 'turnaround.gif')
+            if d == 0 and os.path.exists(ip):         # icon: the item's front view
+                t = Image.open(ip); t.seek(0); t = t.convert('RGBA'); tp = t.load()
+                for yy in range(t.height):           # the garment alone
+                    for xx in range(t.width):
+                        if tp[xx, yy][3] and not wear_cut.RULES['red'](tp[xx, yy]):
+                            tp[xx, yy] = (0, 0, 0, 0)
+                t = t.resize((t.width * 2, t.height * 2), Image.NEAREST)
+                out[f'wri_{item}'] = t.crop(t.getchannel('A').getbbox())
         # harvest (pick up a crate): same canvas position as the idle frames,
         # bottom cut at the idle feet line so the body does not jump
         for act, tag in (('harvest', 'h'), ('hoe', 'g'), ('water', 'u')):
@@ -1251,7 +1248,7 @@ def main():
     out_path = os.path.join(OUT_DIR, 'atlas.webp')
     atlas.save(out_path, 'WEBP', quality=90, method=6)
     with open(os.path.join(OUT_DIR, 'atlas.json'), 'w') as f:
-        json.dump({'w': atlas.width, 'h': atlas.height, 'res': RES, 'frames': rects, 'masks': masks, 'anchors': ANCHORS}, f, separators=(',', ':'))
+        json.dump({'w': atlas.width, 'h': atlas.height, 'res': RES, 'frames': rects, 'masks': masks, 'anchors': ANCHORS, 'waist': WAIST}, f, separators=(',', ':'))
     print(f'atlas {atlas.width}x{atlas.height} @{RES}x, {len(rects)} sprites, {os.path.getsize(out_path)//1024} KB')
 
     if '--preview' in sys.argv:
