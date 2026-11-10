@@ -241,13 +241,14 @@ export class UI {
     for (const [a, n, part] of layers) {
       const f = a.frames[n];
       if (!f) continue;
-      const w = f[2] * k, h = f[3] * k, x = Math.round(px / 2 - w / 2), y = Math.round(foot - h + (f[6] || 0) * k);
+      // unrounded, like the game: all layers share one pixel grid (no gap at the waist)
+      const w = f[2] * k, h = f[3] * k, x = px / 2 - w / 2, y = foot - h + (f[6] || 0) * k;
       g.save();
       if (part) {
-        const cut = foot + (f[6] || 0) * k - (a.waist[n] || 0.45) * h;
-        g.beginPath(); part === 'up' ? g.rect(0, 0, px, cut + 0.5) : g.rect(0, cut - 0.5, px, px); g.clip();
+        const cut = foot + (f[6] || 0) * k - (a.waist[n] || 0.45) * h, lap = 2 / a.res * k;
+        g.beginPath(); part === 'up' ? g.rect(0, 0, px, cut) : g.rect(0, cut - lap, px, px); g.clip();
       }
-      g.drawImage(a.img, f[0], f[1], f[4], f[5], x, y, Math.round(w), Math.round(h));
+      g.drawImage(a.img, f[0], f[1], f[4], f[5], x, y, w, h);
       g.restore();
     }
     return c;

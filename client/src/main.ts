@@ -545,14 +545,21 @@ function render(time: number) {
       const f = atlas.frames[d.name], wf = atlas.waist[d.name];
       if ((!up && !lo) || !f || wf == null) drawAnchored(ctx, atlas, d.name, d.x, d.y, d.flip);
       else {
+        // the lower half (drawn first) reaches one art pixel above the waist,
+        // under the upper half, so smoothing at a fractional zoom never shows
+        // the ground through the seam
+        const LAP = 2 / atlas.res;
+        // every layer is drawn unrounded from the same integer feet point, so the
+        // halves share one pixel grid and meet exactly at the waist line (cut is
+        // on that grid too: the waist is a whole pixel row of the frame)
         const cut = d.y + (f[6] || 0) - wf * f[3];
         const bare = (top: boolean) => {
           ctx.save(); ctx.beginPath();
-          if (top) ctx.rect(d.x - 40, cut - 80, 80, 80.5); else ctx.rect(d.x - 40, cut - 0.5, 80, 80);
-          ctx.clip(); drawAnchored(ctx, atlas, d.name, d.x, d.y, d.flip); ctx.restore();
+          if (top) ctx.rect(d.x - 40, cut - 80, 80, 80); else ctx.rect(d.x - 40, cut - LAP, 80, 80);
+          ctx.clip(); drawAnchored(ctx, atlas, d.name, d.x, d.y, d.flip, true); ctx.restore();
         };
-        if (lo) drawAnchored(ctx, lo[0], lo[1], d.x, d.y, d.flip); else bare(false);
-        if (up) drawAnchored(ctx, up[0], up[1], d.x, d.y, d.flip); else bare(true);
+        if (lo) drawAnchored(ctx, lo[0], lo[1], d.x, d.y, d.flip, true); else bare(false);
+        if (up) drawAnchored(ctx, up[0], up[1], d.x, d.y, d.flip, true); else bare(true);
       }
       continue;
     }

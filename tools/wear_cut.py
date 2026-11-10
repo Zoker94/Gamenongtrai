@@ -310,7 +310,9 @@ def cut_outfit(oid, spec):
         for p, lower, it in parts:
             nr = near[p]
             out = Image.new('RGBA', s.size, (0, 0, 0, 0)); op = out.load()
-            for y in (range(w, H) if lower else range(0, w)):
+            # the lower half also keeps the row above the waist: it lies under
+            # the upper half and closes the seam when the game smooths it
+            for y in (range(max(0, w - 1), H) if lower else range(0, w)):
                 for x in range(W):
                     op[x, y] = sp[x, y]
             if lower:

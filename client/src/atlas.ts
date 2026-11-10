@@ -70,14 +70,18 @@ export async function loadAtlas(base = '/assets/', onProgress?: (p: number) => v
   return { img, frames, res, masks: meta.masks || {}, waist: meta.waist || {} };
 }
 
-/** Draw sprite with its bottom-centre at (x, y). */
+/** Draw sprite with its bottom-centre at (x, y). `exact` keeps the top-left
+ *  unrounded: layers of one figure (body halves, clothes) of different sizes
+ *  then stay on the same pixel grid instead of each snapping its own way
+ *  (which opened a 1 px gap at the waist). Pass an integer (x, y) with it. */
 export function drawAnchored(
   ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
-  a: Atlas, name: string, x: number, y: number, flip = false,
+  a: Atlas, name: string, x: number, y: number, flip = false, exact = false,
 ) {
   const f = a.frames[name];
   if (!f) return;
-  const dx = Math.round(x - f[2] / 2), dy = Math.round(y - f[3] + (f[6] || 0));
+  let dx = x - f[2] / 2, dy = y - f[3] + (f[6] || 0);
+  if (!exact) { dx = Math.round(dx); dy = Math.round(dy); }
   if (flip) {
     ctx.save();
     ctx.translate(dx + f[2], dy);
