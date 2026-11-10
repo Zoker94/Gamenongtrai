@@ -383,7 +383,7 @@ def cut_char2(folder='char2', prefix='pl4'):
         files = {'i': 'idle_{d}.png', 'w': 'walk_{d}_{i}.png', 'h': 'harvest_{d}_{i}.png',
                  'g': 'hoe_{d}_{i}.png', 'u': 'water_{d}_{i}.png'}
         for item in sorted(os.listdir(wdir)) if os.path.isdir(wdir) else []:
-            if not item.endswith(sfx) or not os.path.isdir(os.path.join(wdir, item)):
+            if not item.endswith(sfx) or item.startswith('outfit_') or not os.path.isdir(os.path.join(wdir, item)):
                 continue
             dst = WEAR.setdefault(item, {})
             for tag, i, f, top, bot, foot in geo:

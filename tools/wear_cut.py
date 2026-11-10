@@ -241,91 +241,106 @@ def recolor(im, mask, spec):
     return out
 
 
+def outfit_palette(src_dir, base, lower):
+    """the garment's own colours, from the standing frames: a body band that
+    is all garment (below the head for tops, above the shoes for bottoms).
+    Variants recolour only pixels near these colours, so a face the AI redrew
+    a little differently is never tinted."""
+    pal = set()
+    for d in range(8):
+        fp = os.path.join(src_dir, f'idle_{d}_0.png')
+        b = base.get(('idle', d, 0))
+        if b is None or not os.path.exists(fp):
+            continue
+        s = Image.open(fp).convert('RGBA'); sp = s.load()
+        bb = b.getchannel('A').getbbox(); w = frame_waist(b)
+        y0, y1 = (w + 2, bb[3] - 4) if lower else (bb[1] + (w - bb[1]) * 45 // 100, w)
+        for x, y in cloth_mask(s, b):
+            if y0 <= y < y1:
+                pal.add(sp[x, y][:3])
+    memo = {}
+
+    def near(c, tol=24):
+        if c not in memo:
+            memo[c] = min((abs(c[0] - p[0]) + abs(c[1] - p[1]) + abs(c[2] - p[2]) for p in pal), default=999)
+        return memo[c] <= tol
+    near.dist = lambda c: (near(c), memo[c])[1]
+    return near
+
+
 def cut_outfit(oid, spec):
     """assets/source/wear/<oid>/src -> one folder per item (+ variants) with
     <anim>_<d>.png (idle) / <anim>_<d>_<i>.png halves and icon.png"""
     wdir = os.path.join(ROOT, 'assets/source/wear')
     src_dir = os.path.join(wdir, oid, 'src')
     base = base_frames(spec['base'])
-    halves = [('upper', False), ('lower', True)]
-    made = []
-    for part, lower in halves:
-        it = spec.get(part)
-        if not it:
-            continue
-        ids = [(it['id'], None)] + [(v['id'], v) for v in it.get('variants', [])]
-        for iid, var in ids:
+    parts = [(p, p == 'lower', spec[p]) for p in ('upper', 'lower') if spec.get(p)]
+    near = {p: outfit_palette(src_dir, base, lo) for p, lo, _ in parts}
+    ids = {p: [(it['id'], None)] + [(v['id'], v) for v in it.get('variants', [])] for p, _, it in parts}
+    for p in ids:
+        for iid, _ in ids[p]:
             d0 = os.path.join(wdir, iid)
             os.makedirs(d0, exist_ok=True)
             for f in os.listdir(d0):
                 if f.endswith('.png'):
                     os.remove(os.path.join(d0, f))
-        # the garment's own colours, from the standing frames: a body band that
-        # is all garment (below the head for tops, above the shoes for bottoms).
-        # Variants recolour only pixels near these colours, so a face the AI
-        # redrew a little differently is never tinted.
-        pal = set()
-        for d in range(8):
-            fp = os.path.join(src_dir, f'idle_{d}_0.png')
-            b = base.get(('idle', d, 0))
-            if b is None or not os.path.exists(fp):
-                continue
-            s = Image.open(fp).convert('RGBA'); sp = s.load()
-            bb = b.getchannel('A').getbbox(); w = frame_waist(b)
-            y0, y1 = (w, bb[3] - 4) if lower else (bb[1] + (w - bb[1]) * 45 // 100, w)
-            for x, y in cloth_mask(s, b):
-                if y0 <= y < y1:
-                    pal.add(sp[x, y][:3])
-        memo = {}
-
-        def near(c):
-            if c not in memo:
-                memo[c] = any(abs(c[0] - p[0]) + abs(c[1] - p[1]) + abs(c[2] - p[2]) <= 24 for p in pal)
-            return memo[c]
-        n = 0
-        for f in sorted(os.listdir(src_dir)):
-            a, d, i = f[:-4].rsplit('_', 2)
-            d, i = int(d), int(i)
-            b = base.get((a, d, i))
-            if b is None:
-                continue
-            s = Image.open(os.path.join(src_dir, f)).convert('RGBA')
-            w = frame_waist(b)
-            out = Image.new('RGBA', s.size, (0, 0, 0, 0))
-            out.paste(s.crop((0, w, s.width, s.height) if lower else (0, 0, s.width, w)), (0, w) if lower else (0, 0))
-            mask = None
-            name = f'{a}_{d}.png' if a == 'idle' else f'{a}_{d}_{i}.png'
-            for iid, var in ids:
-                im = out
-                if mask is None:
-                    sp_, bp_ = s.load(), b.load()
-                    bt = b.getchannel('A').getbbox()[1]
-                    # the head (hair over the eyes, a redrawn face) is never cloth:
-                    # above the shoulders only the bare shirt's white is replaced
-                    neck = bt + (w - bt) * 55 // 100
-                    mask = {p for p in cloth_mask(s, b) if (p[1] >= w) == lower
-                            and (p[1] >= neck or is_shirt(bp_[p]) or vivid(sp_[p]))
-                            and near(sp_[p][:3]) and not is_hair(bp_[p])}
-                    # a white garment over the bare white T-shirt / socks hardly
-                    # differs from them: take those pixels by colour alone
-                    mask |= {(x, y) for y in (range(max(w, neck), s.height) if lower else range(neck, w))
-                             for x in range(s.width) if sp_[x, y][3] and is_shirt(bp_[x, y]) and near(sp_[x, y][:3])
-                             and not near_water(bp_, x, y, s.width, s.height)}
-                if var:
-                    im = recolor(out, mask, var)
+    n = 0
+    for f in sorted(os.listdir(src_dir)):
+        a, d, i = f[:-4].rsplit('_', 2)
+        d, i = int(d), int(i)
+        b = base.get((a, d, i))
+        if b is None:
+            continue
+        s = Image.open(os.path.join(src_dir, f)).convert('RGBA')
+        sp, bp = s.load(), b.load()
+        W, H = s.size
+        w = frame_waist(b)
+        bt = b.getchannel('A').getbbox()[1]
+        neck = bt + (w - bt) * 55 // 100   # above: head, never cloth (bar the bare white shirt)
+        changed = cloth_mask(s, b)
+        # a top's pixels below the waist (sleeves of hanging arms, a cuff):
+        # closer to the top's colours than to the bottom's -> they go with the
+        # top; the bottom shows the bare body there instead
+        moved = set()
+        if 'upper' in near and 'lower' in near:
+            nu, nl = near['upper'], near['lower']
+            moved = {(x, y) for x, y in changed if y >= w and nu(sp[x, y][:3])
+                     and nu.dist(sp[x, y][:3]) < nl.dist(sp[x, y][:3])}
+        name = f'{a}_{d}.png' if a == 'idle' else f'{a}_{d}_{i}.png'
+        for p, lower, it in parts:
+            nr = near[p]
+            out = Image.new('RGBA', s.size, (0, 0, 0, 0)); op = out.load()
+            for y in (range(w, H) if lower else range(0, w)):
+                for x in range(W):
+                    op[x, y] = sp[x, y]
+            if lower:
+                for x, y in moved:
+                    op[x, y] = bp[x, y]
+            else:
+                for x, y in moved:
+                    op[x, y] = sp[x, y]
+            mask = {q for q in changed if (q[1] >= w) == lower
+                    and (q[1] >= neck or is_shirt(bp[q]) or vivid(sp[q]))
+                    and nr(sp[q][:3]) and not is_hair(bp[q])} - (moved if lower else set())
+            if not lower:
+                mask |= moved
+            # a white garment over the bare white T-shirt / socks hardly
+            # differs from them: take those pixels by colour alone
+            mask |= {(x, y) for y in (range(max(w, neck), H) if lower else range(neck, w))
+                     for x in range(W) if sp[x, y][3] and is_shirt(bp[x, y]) and nr(sp[x, y][:3])
+                     and not near_water(bp, x, y, W, H)}
+            for iid, var in ids[p]:
+                im = recolor(out, mask, var) if var else out.copy()
                 if not lower:
-                    im = im.copy() if im is out else im
                     extend_hem(im, b, w)
                 im.save(os.path.join(wdir, iid, name))
                 if a == 'idle' and d == 0:     # shop icon: the garment alone, facing us
-                    m = mask
-                    ic = Image.new('RGBA', s.size, (0, 0, 0, 0)); ip, sp = ic.load(), im.load()
-                    for x, y in m:
-                        ip[x, y] = sp[x, y]
+                    ic = Image.new('RGBA', s.size, (0, 0, 0, 0)); ip, mp = ic.load(), im.load()
+                    for x, y in mask:
+                        ip[x, y] = mp[x, y]
                     ic.crop(ic.getchannel('A').getbbox()).save(os.path.join(wdir, iid, 'icon.png'))
-            n += 1
-        made += [f'{iid} ({n} frames)' for iid, _ in ids]
-    print(oid, '->', ', '.join(made))
+        n += 1
+    print(oid, '->', ', '.join(f'{iid} ({n} frames)' for p in ids for iid, _ in ids[p]))
 
 
 def cut_outfits(only=None):
