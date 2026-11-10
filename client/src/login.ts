@@ -29,7 +29,7 @@ async function call(path: string, body?: unknown, token?: string): Promise<{ ok:
  *  as its sprites are in the atlas (female: pl5_*). */
 const CHARACTERS = [
   { id: 'm', label: 'Nam', prefix: 'pl4' },
-  { id: 'f', label: 'Nữ', prefix: 'pl5' },
+  { id: 'f', label: 'Nữ', prefix: 'pl6' },   // chibi test character (branch style-chibi)
 ];
 
 export async function enterGame(atlas: Atlas): Promise<Session> {

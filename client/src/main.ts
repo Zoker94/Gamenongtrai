@@ -68,7 +68,8 @@ weather.onChange = (k) => {
 };
 player.turnaround = !!atlas.frames['pl2_0'];
 player.walkCycles = !!atlas.frames['pl3_0_8'];
-player.sprite = session.profile.gender === 'f' && atlas.frames['pl5_0_w0'] ? 'pl5' : 'pl4';
+// female: the chibi test character (pl6) when its sprites are in the atlas
+player.sprite = session.profile.gender === 'f' ? (atlas.frames['pl6_0_w0'] ? 'pl6' : atlas.frames['pl5_0_w0'] ? 'pl5' : 'pl4') : 'pl4';
 if (atlas.frames[`${player.sprite}_0_w0`]) {
   const count = (d: number, k: string) => { let n = 0; while (atlas.frames[`${player.sprite}_${d}_${k}${n}`]) n++; return n; };
   player.idleN = [0, 1, 2, 3, 4, 5, 6, 7].map((d) => count(d, 'i'));

@@ -1249,6 +1249,9 @@ def main():
             images[k] = polish(images[k], rim=False, sharp=170, color=1.12, contrast=1.1)
         elif k.startswith('gt_'):
             images[k] = polish(images[k], rim=False, sharp=130, color=1.1, contrast=1.06)
+    # chibi restyle test (branch style-chibi): PixelLab chibi art replaces sprites by name
+    import chibi
+    chibi.apply(images, native, RES, T)
     atlas, rects = pack(images)
     os.makedirs(OUT_DIR, exist_ok=True)
     for old in ('atlas.png',):

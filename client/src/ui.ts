@@ -256,6 +256,7 @@ export class UI {
   /** layers for the wardrobe preview: [lower half, upper half] or the bare body */
   private wearLayers(st: FarmState, d = 0): [Atlas, string, ('up' | 'lo')?][] {
     const body = `${this.me.sprite}_${d}_i0`, a = this.atlas;
+    if (a.waist[body] == null) return [[a, body]];   // no clothes for this body yet (chibi test)
     const lo = wearFrame(st.wear?.pants, body), up = wearFrame(st.wear?.shirt, body);
     return !lo && !up ? [[a, body]] : [lo || [a, body, 'lo'], up || [a, body, 'up']];
   }
