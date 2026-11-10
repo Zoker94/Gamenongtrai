@@ -534,13 +534,17 @@ function render(time: number) {
 
   for (const d of list) {
     if (d.name.startsWith(player.sprite + '_')) {
-      // protagonist + clothing layers. Clothes exist only for the standing pose
-      // so far (one layer per direction): drawn over the idle frames.
-      drawAnchored(ctx, atlas, d.name, d.x, d.y, d.flip);
-      const m = /_(\d)_i\d+$/.exec(d.name);
+      // protagonist + clothing layers: wr_<id>_<d> (standing) / wr_<id>_<d>_w<i>
+      // (walking). Pants replace the lower body while walking: the body is drawn
+      // without its legs (wrb_...) and the pants frame brings its own legs.
+      const m = /_(\d)_([iw])(\d+)$/.exec(d.name);
+      const wear = store.st.wear || {};
+      let body = d.name;
+      if (m && m[2] === 'w' && wear.pants && atlas.frames[`wrb_${wear.pants}_${m[1]}_w${m[3]}`]) body = `wrb_${wear.pants}_${m[1]}_w${m[3]}`;
+      drawAnchored(ctx, atlas, body, d.x, d.y, d.flip);
       if (m) for (const sl of WEAR_ORDER) {
-        const id = store.st.wear?.[sl];
-        if (id) drawAnchored(ctx, atlas, `wr_${id}_${m[1]}`, d.x, d.y, d.flip);
+        const id = wear[sl];
+        if (id) drawAnchored(ctx, atlas, m[2] === 'i' ? `wr_${id}_${m[1]}` : `wr_${id}_${m[1]}_w${m[3]}`, d.x, d.y, d.flip);
       }
       continue;
     }

@@ -359,6 +359,38 @@ def cut_char2(folder='char2', prefix='pl4'):
             out[f'wr_{item}_{d}'] = wim
             if d == 0:                               # icon: the garment alone, front view
                 out[f'wri_{item}'] = L.crop(lb)
+        # clothing on the walk cycle: wr_<id>_<d>_w<i> (+ for pants, which replace
+        # the lower body: wrb_<id>_<d>_w<i> = the body frame without its legs)
+        for item in sorted(os.listdir(wdir)) if os.path.isdir(wdir) else []:
+            if not item.endswith(sfx):
+                continue
+            wp = os.path.join(wdir, item, f'walk_{d}.waist')
+            waist = list(map(int, open(wp).read().split())) if os.path.exists(wp) else None
+            for i, f in enumerate(walk):
+                lpth = os.path.join(wdir, item, f'walk_{d}_{i}.png')
+                if not os.path.exists(lpth):
+                    continue
+                L = Image.open(lpth).convert('RGBA')
+                L = L.resize((L.width * 2, L.height * 2), Image.NEAREST)
+                fb = f.getchannel('A').getbbox()
+                hwf = max(cx - fb[0], fb[2] - cx) + 1
+                lb = L.getchannel('A').getbbox()
+                hw = max(hwf, cx - lb[0] + 1, lb[2] - cx + 1); hw += (hw - hwf) % 2
+                top, bot = min(lb[1], fb[1]), max(lb[3], fb[3])
+                wim = Image.new('RGBA', (hw * 2, bot - top), (0, 0, 0, 0))
+                wim.paste(L.crop((cx - hw, top, cx + hw, bot)), (0, 0))
+                # canvas bottom = the body frame's bottom; anything lower is an anchor offset
+                out[f'wr_{item}_{d}_w{i}'] = wim
+                if bot > fb[3]:
+                    ANCHORS[f'wr_{item}_{d}_w{i}'] = bot - fb[3]
+                if waist:
+                    body = f.copy(); bp = body.load()
+                    for y in range(waist[i] * 2, body.height):
+                        for x in range(body.width):
+                            bp[x, y] = (0, 0, 0, 0)
+                    bim = Image.new('RGBA', (hwf * 2, fb[3] - fb[1]), (0, 0, 0, 0))
+                    bim.paste(body.crop(fb), (hwf - (cx - fb[0]), 0))
+                    out[f'wrb_{item}_{d}_w{i}'] = bim
         for i, f in enumerate(walk):
             out[f'{prefix}_{d}_w{i}'] = place(f, cx)
         # harvest (pick up a crate): same canvas position as the idle frames,

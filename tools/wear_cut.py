@@ -50,10 +50,27 @@ def nearest_colour(layer, x, y, max_r=2):
     return None
 
 
-def cut_direction(src, base, is_cloth):
-    jb = src.getchannel('A').getbbox(); bb = base.getchannel('A').getbbox()
-    dx = (bb[0] + bb[2]) // 2 - (jb[0] + jb[2]) // 2
-    dy = bb[3] - jb[3]
+def best_offset(src, base, r=2):
+    """same-canvas animation frames: the small shift where the silhouettes overlap most"""
+    sa, ba = src.getchannel('A').load(), base.getchannel('A').load()
+    W, H = base.size
+    pts = [(x, y) for y in range(H) for x in range(W) if sa[x, y]]
+    best = (-1, 0, 0)
+    for dy in range(-r, r + 1):
+        for dx in range(-r, r + 1):
+            n = sum(1 for x, y in pts if 0 <= x + dx < W and 0 <= y + dy < H and ba[x + dx, y + dy])
+            if n > best[0]:
+                best = (n, dx, dy)
+    return best[1], best[2]
+
+
+def cut_direction(src, base, is_cloth, same_canvas=False):
+    if same_canvas:
+        dx, dy = best_offset(src, base)
+    else:
+        jb = src.getchannel('A').getbbox(); bb = base.getchannel('A').getbbox()
+        dx = (bb[0] + bb[2]) // 2 - (jb[0] + jb[2]) // 2
+        dy = bb[3] - jb[3]
     al = Image.new('RGBA', base.size, (0, 0, 0, 0)); al.alpha_composite(src, (dx, dy))
     sp, bp = al.load(), base.load()
     W, H = base.size
@@ -148,11 +165,76 @@ def check_order(im, base_folder):
             print(f'  ! frame {j} looks like direction {best} ({sc[best]:.2f} vs {sc[j]:.2f})')
 
 
+def cut_lower(d0, base_folder, is_cloth, act):
+    """Pants: the redrawn legs follow their own step cycle, so a layer over the
+    base legs can't fit. Instead the game hides the base body below the waist and
+    draws the source's whole lower body (pants, shoes, hands) from its own frame i.
+    -> <act>_<d>_<i>.png (lower body) + <act>_<d>.waist (waist row per frame)"""
+    for d in range(8):
+        sp = os.path.join(d0, f'{act}_{d}.gif')
+        if not os.path.exists(sp):
+            continue
+        src, base = Image.open(sp), Image.open(os.path.join(ROOT, 'assets/source', base_folder, f'{act}_{d}.gif'))
+        waists = []
+        for i in range(min(src.n_frames, base.n_frames)):
+            src.seek(i); base.seek(i)
+            sf, bf = src.convert('RGBA'), base.convert('RGBA')
+            dx, dy = best_offset(sf, bf)
+            al = Image.new('RGBA', bf.size, (0, 0, 0, 0)); al.alpha_composite(sf, (dx, dy))
+            ap = al.load(); W, H = al.size
+            per_row = Counter(y for y in range(H) for x in range(W) if ap[x, y][3] and is_cloth(ap[x, y]))
+            waist = min(y for y, n in per_row.items() if n >= 4)   # ignore a stray red dot higher up
+            layer = Image.new('RGBA', bf.size, (0, 0, 0, 0)); lp = layer.load()
+            for y in range(waist, H):
+                for x in range(W):
+                    if ap[x, y][3]:
+                        lp[x, y] = ap[x, y]
+            layer.save(os.path.join(d0, f'{act}_{d}_{i}.png'))
+            waists.append(waist)
+        open(os.path.join(d0, f'{act}_{d}.waist'), 'w').write(' '.join(map(str, waists)))
+        print(f'  {act}_{d}: lower body from own frames, waist rows {waists}')
+
+
+def cut_anim(d0, base_folder, is_cloth, act):
+    """<act>_<d>.gif in the item folder = the base animation <act>_<d>.gif redrawn
+    wearing the item (same 68px canvas, same frame count) -> <act>_<d>_<i>.png"""
+    for d in range(8):
+        sp = os.path.join(d0, f'{act}_{d}.gif')
+        if not os.path.exists(sp):
+            continue
+        src, base = Image.open(sp), Image.open(os.path.join(ROOT, 'assets/source', base_folder, f'{act}_{d}.gif'))
+        if src.n_frames != base.n_frames:
+            print(f'  ! {act}_{d}: {src.n_frames} frames, base has {base.n_frames}')
+        sfr = []
+        for i in range(src.n_frames):
+            src.seek(i); sfr.append(src.convert('RGBA'))
+        res, pick = [], []
+        for i in range(base.n_frames):
+            base.seek(i); bf = base.convert('RGBA')
+            # the redrawn cycle may be out of step with the base one: use the
+            # source frame whose silhouette (legs included) fits this base frame best
+            def fit(f):
+                dx, dy = best_offset(f, bf)
+                sa, ba = f.getchannel('A').load(), bf.getchannel('A').load()
+                W, H = bf.size
+                a = {(x + dx, y + dy) for y in range(H) for x in range(W) if sa[x, y]}
+                b = {(x, y) for y in range(H) for x in range(W) if ba[x, y]}
+                return len(a & b) / len(a | b)
+            j = max(range(len(sfr)), key=lambda k: fit(sfr[k]) + (0.01 if k == i else 0))
+            layer, leaks, specks = cut_direction(sfr[j], bf, is_cloth, same_canvas=True)
+            layer.save(os.path.join(d0, f'{act}_{d}_{i}.png'))
+            res.append(leaks + specks); pick.append(j)
+        print(f'  {act}_{d}: base frame -> source frame {pick}, pixels fixed {res}')
+
+
 def main(item, base_folder, rule='red'):
     d0 = os.path.join(ROOT, 'assets/source/wear', item)
     im = Image.open(os.path.join(d0, 'turnaround.gif'))
     is_cloth = RULES[rule]
     out = []
+    lower = 'pants' in item                      # pants replace the lower body
+    for act in ('walk',):
+        (cut_lower if lower else cut_anim)(d0, base_folder, is_cloth, act)
     check_order(im, base_folder)
     for d in range(8):
         im.seek(d); src = im.convert('RGBA')
