@@ -183,9 +183,9 @@ const FORCE_ZOOM = Number(new URLSearchParams(location.search).get('z')) || 0;
 // player-chosen zoom, multiplied with the automatic base zoom
 const ZOOM_STEPS = [0.75, 0.85, 1, 1.2, 1.45];
 let zoomStep = 2;
-try { const v = Number(localStorage.getItem('gnt_zoom2')); if (v >= 0 && v < ZOOM_STEPS.length) zoomStep = v; } catch { /* ignore */ }
-const zinBtn = document.getElementById('zin') as HTMLButtonElement;
-const zoutBtn = document.getElementById('zout') as HTMLButtonElement;
+// (no zoom buttons any more: only keyboard +/- and Ctrl+wheel on PC; the old
+//  'gnt_zoom2' choice is dropped so phones are not stuck at an old zoom)
+try { const v = Number(localStorage.getItem('gnt_zoom3')); if (v >= 0 && v < ZOOM_STEPS.length) zoomStep = v; } catch { /* ignore */ }
 
 function resize() {
   dpr = Math.min(window.devicePixelRatio || 1, dprCap());
@@ -204,20 +204,16 @@ function resize() {
   // screen shows (zoomed out), filter smoothly instead of dropping pixels
   ctx.imageSmoothingEnabled = zoom < atlas.res - 0.05;
   ctx.imageSmoothingQuality = 'high';
-  zinBtn.disabled = zoomStep >= ZOOM_STEPS.length - 1;
-  zoutBtn.disabled = zoomStep <= 0 || zoom <= fill + 1e-6;
 }
 
 function setZoom(delta: number) {
   const next = Math.max(0, Math.min(ZOOM_STEPS.length - 1, zoomStep + delta));
   if (next === zoomStep) return;
   zoomStep = next;
-  try { localStorage.setItem('gnt_zoom2', String(zoomStep)); } catch { /* ignore */ }
+  try { localStorage.setItem('gnt_zoom3', String(zoomStep)); } catch { /* ignore */ }
   resize();
   updateCamera(0, true);
 }
-zinBtn.addEventListener('click', () => setZoom(1));
-zoutBtn.addEventListener('click', () => setZoom(-1));
 addEventListener('keydown', (e) => {
   if (e.key === '+' || e.key === '=') setZoom(1);
   else if (e.key === '-' || e.key === '_') setZoom(-1);
@@ -243,6 +239,16 @@ document.getElementById('fs')!.addEventListener('click', () => {
   else void goLandscape();
 });
 if (!document.documentElement.requestFullscreen) document.getElementById('fs')!.hidden = true;
+// one button: enter full screen / leave it (icon and tooltip follow the state)
+const FS_IN = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>';
+const FS_OUT = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>';
+document.getElementById('fs')!.innerHTML = FS_IN;
+document.addEventListener('fullscreenchange', () => {
+  const b = document.getElementById('fs')!, on = !!document.fullscreenElement;
+  b.innerHTML = on ? FS_OUT : FS_IN;
+  b.title = on ? 'Thu nhỏ màn hình' : 'Phóng to toàn màn hình';
+  b.setAttribute('aria-label', b.title);
+});
 
 addEventListener('resize', resize);
 addEventListener('orientationchange', () => setTimeout(resize, 150));
