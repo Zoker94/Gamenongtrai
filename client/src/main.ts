@@ -51,6 +51,8 @@ const store = new Store((x, y) => isTillable(map, x, y), map.starter, session.to
 store.onAuthFail = () => logout();
 if (new URLSearchParams(location.search).has('debug')) Object.assign(window, { __store: store });
 const playerName = session.profile.name;
+/** clothing draw order, bottom to top */
+const WEAR_ORDER = ['pants', 'shoes', 'shirt', 'acc', 'hat'];
 (document.getElementById('pname') as HTMLElement).textContent = playerName;
 const ui = new UI(atlas, session.profile.gender === 'f' && atlas.frames['portrait_f'] ? 'portrait_f' : 'portrait');
 const input = new Input(canvas, document.getElementById('stick')!, document.getElementById('knob')!, document.getElementById('act')!);
@@ -88,6 +90,7 @@ store.onNet = (on) => { ui.setNet(on); if (on) ui.toast('Đã kết nối máy c
 ui.me = { name: playerName, username: session.profile.username, sprite: player.sprite, gender: session.profile.gender === 'f' ? 'f' : 'm' };
 document.getElementById('card')!.addEventListener('click', () => ui.openWardrobe(store.st));
 ui.onEquip = (item) => { if (store.act({ t: 'equip', item })) ui.toast(`Đã mặc ${WEARABLES[item].name}`); };
+ui.onBuyWear = (item) => { if (store.act({ t: 'buyWear', item })) ui.toast(`Đã mua ${WEARABLES[item].name}`); };
 ui.onUnequip = (slot) => { store.act({ t: 'unequip', slot }); };
 document.getElementById('gear')!.addEventListener('click', () => ui.openSettings());
 const fpsEl = document.getElementById('fpsc') as HTMLElement;
@@ -530,6 +533,17 @@ function render(time: number) {
   list.sort(byY);
 
   for (const d of list) {
+    if (d.name.startsWith(player.sprite + '_')) {
+      // protagonist + clothing layers. Clothes exist only for the standing pose
+      // so far (one layer per direction): drawn over the idle frames.
+      drawAnchored(ctx, atlas, d.name, d.x, d.y, d.flip);
+      const m = /_(\d)_i\d+$/.exec(d.name);
+      if (m) for (const sl of WEAR_ORDER) {
+        const id = store.st.wear?.[sl];
+        if (id) drawAnchored(ctx, atlas, `wr_${id}_${m[1]}`, d.x, d.y, d.flip);
+      }
+      continue;
+    }
     if (d.name.startsWith('pl_')) {
       const [dy, sx, sy, lean] = player.pose;
       // shadow shrinks a little while the body is in the air

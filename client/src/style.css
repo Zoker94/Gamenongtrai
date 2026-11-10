@@ -417,3 +417,9 @@ body.touch #stick { background: rgba(255, 240, 200, .18); border: 3px solid rgba
   .settings h3 { margin: 6px 0 3px; }
   .box .seg button { padding: 3px 10px; font-size: 12px; }
 }
+
+/* clothing shop link + back */
+.wardrobe h3.wh { display: flex; align-items: center; justify-content: space-between; }
+.box .shopbtn, .box .back { font: inherit; font-size: 12px; font-weight: 700; padding: 3px 10px; cursor: pointer; }
+.box .back { float: right; margin-top: -4px; background: linear-gradient(#f3d58a, #d9a640); border-color: var(--wood-d); box-shadow: 0 3px 0 var(--wood-d); color: var(--ink); text-shadow: none; }
+.box .row .ic canvas { image-rendering: pixelated; }

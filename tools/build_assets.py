@@ -337,6 +337,28 @@ def cut_char2(folder='char2', prefix='pl4'):
         cx = round(sum(feet_x(f) for f in frames) / len(frames))
         for i, f in enumerate(idle):
             out[f'{prefix}_{d}_i{i}'] = place(f, cx)
+        # clothing layers (assets/source/wear/<id>_<f|m>/idle_<d>.png, cut by
+        # tools/wear_cut.py on the same 68px canvas): same feet anchor and the
+        # same bottom line as the standing body, so they draw straight over it
+        sfx = '_f' if folder == 'char_f' else '_m'
+        wdir = os.path.join(ROOT, 'assets/source/wear')
+        bbb = idle[0].getchannel('A').getbbox()
+        hwb = max(cx - bbb[0], bbb[2] - cx) + 1
+        for item in sorted(os.listdir(wdir)) if os.path.isdir(wdir) else []:
+            lpth = os.path.join(wdir, item, f'idle_{d}.png')
+            if not item.endswith(sfx) or not os.path.exists(lpth):
+                continue
+            L = Image.open(lpth).convert('RGBA')
+            L = L.resize((L.width * 2, L.height * 2), Image.NEAREST)
+            lb = L.getchannel('A').getbbox()
+            hw = max(hwb, cx - lb[0] + 1, lb[2] - cx + 1)
+            hw += (hw - hwb) % 2                     # keep the centre on the body's pixel grid
+            top = min(lb[1], bbb[1])
+            wim = Image.new('RGBA', (hw * 2, bbb[3] - top), (0, 0, 0, 0))
+            wim.paste(L.crop((cx - hw, top, cx + hw, bbb[3])), (0, 0))
+            out[f'wr_{item}_{d}'] = wim
+            if d == 0:                               # icon: the garment alone, front view
+                out[f'wri_{item}'] = L.crop(lb)
         for i, f in enumerate(walk):
             out[f'{prefix}_{d}_w{i}'] = place(f, cx)
         # harvest (pick up a crate): same canvas position as the idle frames,

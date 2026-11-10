@@ -28,7 +28,7 @@ SPECK = 4
 
 RULES = {
     # crimson / red cloth: strong red, almost no green
-    'red': lambda p: p[0] > 50 and p[0] >= 3 * p[1],
+    'red': lambda p: p[0] > 40 and p[0] >= 3 * p[1],
 }
 
 
@@ -63,6 +63,18 @@ def cut_direction(src, base, is_cloth):
             if sp[x, y][3] and is_cloth(sp[x, y]):
                 lp[x, y] = sp[x, y]
     cloth = layer.copy()                      # colours to sample from
+    lb = layer.getchannel('A').getbbox()
+    # 3a. the bare body sticking out past the edge of the clothing: base pixel
+    #     right next to the clothing where the dressed source shows background
+    out = 0
+    for y in range(lb[1] + 1, lb[3] - 1):
+        for x in range(W):
+            if lp[x, y][3] or not bp[x, y][3] or sp[x, y][3]:
+                continue
+            if any(cloth.getpixel((nx, ny))[3] for nx in (x - 1, x, x + 1) for ny in (y - 1, y, y + 1) if 0 <= nx < W and 0 <= ny < H):
+                c = nearest_colour(cloth, x, y)
+                if c:
+                    lp[x, y] = c; out += 1
     # 3. leaks of the bare shirt next to the clothing
     leaks = 0
     for y in range(H):
@@ -72,6 +84,21 @@ def cut_direction(src, base, is_cloth):
             c = nearest_colour(cloth, x, y)
             if c:
                 lp[x, y] = c; leaks += 1
+    # 3b. holes: an uncovered body pixel almost surrounded by clothing (>= 6 of
+    #     its 8 neighbours) -> the base shorts / skin peeking through a gap
+    holes = 0
+    for _ in range(2):
+        snap = layer.copy(); sn = snap.load()
+        for y in range(1, H - 1):
+            for x in range(1, W - 1):
+                if sn[x, y][3] or not bp[x, y][3]:
+                    continue
+                n = sum(1 for nx in (x - 1, x, x + 1) for ny in (y - 1, y, y + 1) if (nx, ny) != (x, y) and sn[nx, ny][3])
+                if n >= 6:
+                    c = nearest_colour(snap, x, y, 1)
+                    if c:
+                        lp[x, y] = c; holes += 1
+    leaks += holes
     # 4. small light specks left in the composed picture, touching the clothing
     comp = base.copy(); comp.alpha_composite(layer); cp = comp.load()
     seen, specks = set(), 0
@@ -97,7 +124,28 @@ def cut_direction(src, base, is_cloth):
                 c = nearest_colour(cloth, x, y)
                 if c:
                     lp[x, y] = c; specks += 1
-    return layer, leaks, specks
+    return layer, leaks + out, specks
+
+
+def _mask(img):
+    bb = img.getchannel('A').getbbox(); a = img.getchannel('A').load()
+    cx = (bb[0] + bb[2]) // 2
+    return {(x - cx, y - bb[3]) for y in range(img.height) for x in range(img.width) if a[x, y]}
+
+
+def check_order(im, base_folder):
+    """the source frames must be in the game's direction order: warn if a frame
+    looks more like another direction of the bare character"""
+    bases = []
+    for d in range(8):
+        b = Image.open(os.path.join(ROOT, 'assets/source', base_folder, f'idle_{d}.gif')); b.seek(0)
+        bases.append(_mask(b.convert('RGBA')))
+    for j in range(8):
+        im.seek(j); m = _mask(im.convert('RGBA'))
+        sc = [len(m & b) / len(m | b) for b in bases]
+        best = sc.index(max(sc))
+        if best != j and sc[best] - sc[j] > 0.03:
+            print(f'  ! frame {j} looks like direction {best} ({sc[best]:.2f} vs {sc[j]:.2f})')
 
 
 def main(item, base_folder, rule='red'):
@@ -105,6 +153,7 @@ def main(item, base_folder, rule='red'):
     im = Image.open(os.path.join(d0, 'turnaround.gif'))
     is_cloth = RULES[rule]
     out = []
+    check_order(im, base_folder)
     for d in range(8):
         im.seek(d); src = im.convert('RGBA')
         b = Image.open(os.path.join(ROOT, 'assets/source', base_folder, f'idle_{d}.gif')); b.seek(0)

@@ -57,7 +57,10 @@ export const WEAR_SLOTS: { id: string; name: string }[] = [
 ];
 /** Clothing catalog. Empty until the clothing assets arrive: add an entry per
  *  item (icon = atlas frame name), players own them as inv['wear:<id>']. */
-export const WEARABLES: Record<string, { name: string; slot: string; icon: string; gender?: 'm' | 'f'; price?: number }> = {};
+export const WEARABLES: Record<string, { name: string; slot: string; icon: string; gender?: 'm' | 'f'; price?: number }> = {
+  jacket_red_f: { name: 'Áo khoác đỏ', slot: 'shirt', icon: 'wri_jacket_red_f', gender: 'f', price: 50 },
+  pants_red_f:  { name: 'Quần dài đỏ', slot: 'pants', icon: 'wri_pants_red_f',  gender: 'f', price: 40 },
+};
 const PEST_CHANCE = 0.22;
 
 export interface FarmState {
@@ -105,6 +108,7 @@ export type Action =
   | { t: 'spray'; x: number; y: number }
   | { t: 'buy'; crop: string; n: number }
   | { t: 'buyItem'; item: string; n: number }
+  | { t: 'buyWear'; item: string }
   | { t: 'equip'; item: string }
   | { t: 'unequip'; slot: string };
 
@@ -289,6 +293,13 @@ export function applyAction(
     if (st.coins < def.price * n) return 'Không đủ tiền';
     st.coins -= def.price * n;
     add(st.inv, a.item, n);
+  } else if (a.t === 'buyWear') {
+    const def = WEARABLES[a.item];
+    if (!def || !def.price) return 'Món này không bán';
+    if (st.inv['wear:' + a.item]) return 'Bạn đã có món này rồi';
+    if (st.coins < def.price) return 'Không đủ tiền';
+    st.coins -= def.price;
+    add(st.inv, 'wear:' + a.item, 1);
   } else if (a.t === 'equip') {
     const def = WEARABLES[a.item];
     if (!def) return 'Không có món đồ này';
