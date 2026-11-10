@@ -14,12 +14,15 @@
   <canvas id="game"></canvas>
   <div id="hud">
     <div id="top">
-      <div id="avatar" title="Nhân vật · tủ đồ"></div>
-      <div class="pill" id="pname"></div>
-      <div class="pill" id="coins"></div>
-      <div class="pill" id="place">Nông trại</div>
-      <div class="pill" id="weather" data-k="sun">Trời nắng</div>
-      <div class="pill" id="net" title="Trạng thái kết nối">…</div>
+      <div id="card" title="Nhân vật · tủ đồ">
+        <div id="avatar"></div>
+        <div class="info">
+          <b id="pname"></b>
+          <div class="cur"><span id="coins"></span><span id="gems"></span></div>
+        </div>
+      </div>
+      <div id="weather" data-k="sun" hidden></div>
+      <div id="net" hidden></div>
     </div>
     <div id="toast"></div>
     <div id="hotbar"></div>

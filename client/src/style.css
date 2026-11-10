@@ -341,7 +341,6 @@ body.touch #stick { background: rgba(255, 240, 200, .18); border: 3px solid rgba
 }
 .box:has(.wardrobe) { width: min(620px, calc(100vw - 24px)); }
 /* money lives in the character tab now */
-#coins { display: none; }
 .wardrobe .money { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; border-radius: 12px;
   background: linear-gradient(#fff3c2, #f7dc8a); border: 2px solid #c79a2e; font-weight: 700; color: #6b4a14; }
 .wardrobe .money b { font-size: 17px; color: #7a4a00; }
@@ -367,3 +366,28 @@ body.touch #stick { background: rgba(255, 240, 200, .18); border: 3px solid rgba
   .need b { font-size: 11px; }
 }
 .wardrobe .rest { margin: 4px 0 0; font-size: 12px; font-weight: 700; color: #b23b2c; }
+
+/* compact top-left card: avatar + name + money (VND) + diamonds */
+#card { display: flex; align-items: center; gap: 8px; padding: 3px 10px 3px 3px; pointer-events: auto; cursor: pointer;
+  background: linear-gradient(var(--paper), var(--paper-d)); border: 3px solid var(--wood-d); border-radius: 14px;
+  box-shadow: 0 3px 0 var(--wood-d), inset 0 1px 0 #fff8e4; color: var(--ink); }
+#card #avatar { width: 44px; height: 44px; border-width: 2px; border-radius: 10px; box-shadow: inset 0 0 0 2px #ffd88a; }
+#card #avatar canvas { width: 40px; height: 40px; }
+#card .info { display: grid; gap: 1px; line-height: 1.15; }
+#card #pname { font-size: 14px; color: var(--wood-d); max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#card .cur { display: flex; gap: 10px; font-size: 13px; font-weight: 800; white-space: nowrap; }
+#card #coins { color: #8a5a00; }
+#card #gems { color: #1f6fb0; }
+#card .coin { width: 12px; height: 12px; border-width: 1.5px; margin: 0 4px -1px 0; }
+.gem { display: inline-block; width: 11px; height: 11px; margin: 0 5px 0 1px; transform: rotate(45deg); border-radius: 2px;
+  background: linear-gradient(135deg, #e6fbff 0%, #7fd6ff 35%, #2a8de0 70%, #1559a8 100%); border: 1.5px solid #0f3f7a; vertical-align: 0; }
+.wardrobe .money { display: grid; grid-template-columns: auto 1fr; gap: 0 10px; }
+.wardrobe .money b { text-align: right; }
+.wardrobe .money b.g { color: #1f6fb0; }
+@media (max-height: 500px) {
+  #card { padding: 2px 8px 2px 2px; gap: 6px; border-radius: 12px; }
+  #card #avatar { width: 38px; height: 38px; }
+  #card #avatar canvas { width: 34px; height: 34px; }
+  #card #pname { font-size: 12px; }
+  #card .cur { font-size: 12px; gap: 8px; }
+}

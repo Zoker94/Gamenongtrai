@@ -14,6 +14,7 @@ export class UI {
   private atlas: Atlas;
   private hotbar = $('hotbar');
   private coins = $('coins');
+  private gems = $('gems');
   private toastEl = $('toast');
   private netEl = $('net');
   private actBtn = $('act');
@@ -75,7 +76,8 @@ export class UI {
 
   /** Rebuild hotbar only when the inventory signature changes. */
   update(st: FarmState) {
-    this.coins.innerHTML = `<i class="coin"></i>${st.coins}`;
+    this.coins.innerHTML = `<i class="coin"></i>${vnd(st.coins)}`;
+    this.gems.innerHTML = `<i class="gem"></i>${(st.gems || 0).toLocaleString('vi-VN')}`;
     const seeds = CROP_IDS.filter((c) => st.inv['seed:' + c]);
     const sig = seeds.map((c) => c + st.inv['seed:' + c]).join('|') + `|f${st.inv.fert || 0}|s${st.inv.spray || 0}`;
     if (sig === this.sig && this.slots.length) return;
@@ -222,7 +224,7 @@ export class UI {
           <b>${me.name}</b><small>@${me.username}</small>
           <button class="out" data-logout>Đăng xuất</button></div>
         <div class="wear-r">
-          <div class="money"><span>Tiền</span><b>${vnd(st.coins)}</b></div>
+          <div class="money"><span>Tiền</span><b>${vnd(st.coins)}</b><span>Kim cương</span><b class="g"><i class="gem"></i>${(st.gems || 0).toLocaleString('vi-VN')}</b></div>
           <h3>Trạng thái</h3><div class="needs">${needs}</div>
           ${nd.x ? `<p class="rest">Đang kiệt sức: nghỉ thêm khoảng ${restMinutes(nd)} phút mới cuốc đất, chăm cây được.</p>` : ''}
           <h3>Đang mặc</h3><div class="wslots">${slots}</div>

@@ -85,7 +85,7 @@ store.onError = (m) => ui.toast(m);
 store.onNet = (on) => { ui.setNet(on); if (on) ui.toast('Đã kết nối máy chủ'); };
 // avatar -> character tab (clothing slots + wardrobe, logout)
 ui.me = { name: playerName, username: session.profile.username, sprite: player.sprite, gender: session.profile.gender === 'f' ? 'f' : 'm' };
-document.getElementById('avatar')!.addEventListener('click', () => ui.openWardrobe(store.st));
+document.getElementById('card')!.addEventListener('click', () => ui.openWardrobe(store.st));
 ui.onEquip = (item) => { if (store.act({ t: 'equip', item })) ui.toast(`Đã mặc ${WEARABLES[item].name}`); };
 ui.onUnequip = (slot) => { store.act({ t: 'unequip', slot }); };
 ui.onLogout = () => { if (confirm(`Đăng xuất tài khoản ${session.profile.username}?`)) logout(); };

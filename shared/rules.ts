@@ -63,6 +63,7 @@ const PEST_CHANCE = 0.22;
 export interface FarmState {
   v: number; // bumps on every change
   coins: number;
+  gems?: number;  // kim cương: second currency
   inv: Record<string, number>; // 'seed:carrot', 'carrot', ...
   plots: Record<string, Plot>; // key "x,y"
   wear?: Record<string, string>; // equipped clothing: slot -> item id (owned as inv['wear:<id>'])
@@ -115,7 +116,7 @@ export interface StarterPlot { x: number; y: number; c: string; s: number }
 export function newFarm(starter: StarterPlot[] = []): FarmState {
   const plots: Record<string, Plot> = {};
   for (const p of starter) plots[key(p.x, p.y)] = { c: p.c, s: p.s, w: 0, d: 0 };
-  return { v: 1, coins: 100, n: { h: 0, t: 0, f: 0, at: Date.now() }, inv: { 'seed:rice': 6, 'seed:carrot': 6, 'seed:tomato': 3, fert: 3, spray: 2 }, plots };
+  return { v: 1, coins: 100, gems: 0, n: { h: 0, t: 0, f: 0, at: Date.now() }, inv: { 'seed:rice': 6, 'seed:carrot': 6, 'seed:tomato': 3, fert: 3, spray: 2 }, plots };
 }
 
 /** ms one growth stage takes for this plot */
