@@ -120,11 +120,14 @@ export const key = (x: number, y: number) => x + ',' + y;
 
 export interface StarterPlot { x: number; y: number; c: string; s: number }
 
+/** Starting money of a new account (1 coin = 1.000 ₫): 100.000 ₫ + a 5.000.000 ₫ gift. */
+export const START_COINS = 100 + 5000;
+
 /** A new farm. The map provides a few plots already growing so it never looks bare. */
 export function newFarm(starter: StarterPlot[] = []): FarmState {
   const plots: Record<string, Plot> = {};
   for (const p of starter) plots[key(p.x, p.y)] = { c: p.c, s: p.s, w: 0, d: 0 };
-  return { v: 1, coins: 100, gems: 0, n: { h: 0, t: 0, f: 0, at: Date.now() }, inv: { 'seed:rice': 6, 'seed:carrot': 6, 'seed:tomato': 3, fert: 3, spray: 2 }, plots };
+  return { v: 1, coins: START_COINS, gems: 0, n: { h: 0, t: 0, f: 0, at: Date.now() }, inv: { 'seed:rice': 6, 'seed:carrot': 6, 'seed:tomato': 3, fert: 3, spray: 2 }, plots };
 }
 
 /** ms one growth stage takes for this plot */
