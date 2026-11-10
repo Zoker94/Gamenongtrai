@@ -1,5 +1,6 @@
 import { CROPS, CROP_IDS, SUPPLIES, WEAR_SLOTS, WEARABLES, needsAt, restMinutes, type FarmState } from '../../shared/rules.ts';
 import { type Atlas, iconCanvas } from './atlas.ts';
+import { type Settings, settings } from './settings.ts';
 
 export interface Slot { id: string; icon: string; label: string; count?: number }
 
@@ -28,6 +29,7 @@ export class UI {
   onEquip: (item: string) => void = () => {};
   onUnequip: (slot: string) => void = () => {};
   onLogout: () => void = () => {};
+  onSetting: (k: keyof Settings, v: Settings[keyof Settings]) => void = () => {};
   /** who is shown in the wardrobe (set once after login) */
   me = { name: '', username: '', sprite: 'pl4', gender: 'm' as 'm' | 'f' };
 
@@ -49,6 +51,12 @@ export class UI {
       else if (b.dataset.equip) this.onEquip(b.dataset.equip);
       else if (b.dataset.unequip) this.onUnequip(b.dataset.unequip);
       else if (b.dataset.logout != null) this.onLogout();
+      else if (b.dataset.set) {
+        const k = b.dataset.set as keyof Settings, raw = b.dataset.v!;
+        const v = raw === 'true' ? true : raw === 'false' ? false : /^\d+$/.test(raw) ? +raw : raw;
+        this.onSetting(k, v as Settings[keyof Settings]);
+        this.openSettings();
+      }
     });
   }
 
@@ -189,6 +197,27 @@ export class UI {
     else if (this.panel.dataset.kind === 'ship') this.openShip(st);
     else if (this.panel.dataset.kind === 'store') this.openStore(st);
     else if (this.panel.dataset.kind === 'wear') this.openWardrobe(st);
+  }
+
+  /** Game settings (gear button). Values live in settings.ts / localStorage. */
+  openSettings() {
+    this.panel.dataset.kind = 'settings';
+    const seg = (k: keyof Settings, opts: [string | number | boolean, string][]) =>
+      `<span class="seg">${opts.map(([v, l]) => `<button data-set="${k}" data-v="${v}" class="${settings[k] === v ? 'on' : ''}">${l}</button>`).join('')}</span>`;
+    const onoff = (k: keyof Settings) => seg(k, [[true, 'Bật'], [false, 'Tắt']]);
+    const row = (nm: string, hint: string, ctl: string) => `<div class="srow"><span class="nm">${nm}<small>${hint}</small></span>${ctl}</div>`;
+    const body = `<h3>Đồ họa</h3>
+      ${row('Chất lượng hình ảnh', 'Thấp giúp máy yếu chạy mượt hơn', seg('quality', [['high', 'Cao'], ['mid', 'Vừa'], ['low', 'Thấp']]))}
+      ${row('Khung hình', '30 FPS giúp tiết kiệm pin', seg('fps', [[60, '60'], [30, '30']]))}
+      ${row('Hiệu ứng thời tiết', 'Mưa, sương, mây trên màn hình', onoff('weatherFx'))}
+      ${row('Hiệu ứng cảnh vật', 'Bướm, lá bay, bụi nắng', onoff('ambientFx'))}
+      <h3>Hiển thị</h3>
+      ${row('Thanh trạng thái cây', 'Tiến độ lớn, cần tưới, sâu bệnh', onoff('cropBars'))}
+      ${row('Tên trên đầu nhân vật', '', onoff('nameTag'))}
+      ${row('Hiện FPS', 'Số khung hình mỗi giây', onoff('showFps'))}
+      <h3>Tài khoản</h3>
+      <div class="srow"><span class="nm">${this.me.name}<small>@${this.me.username}</small></span><button class="out" data-logout>Đăng xuất</button></div>`;
+    this.showPanel('Cài đặt', `<div class="settings">${body}</div>`);
   }
 
   /** Character tab (tap the avatar): the character, its clothing slots and the

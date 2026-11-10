@@ -13,6 +13,7 @@ import { enterGame, logout } from './login.ts';
 import { Player } from './player.ts';
 import { FARM_NPCS, Npc } from './npc.ts';
 import { UI, vnd } from './ui.ts';
+import { dprCap, saveSettings, settings } from './settings.ts';
 import { TILE, World } from './world.ts';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
@@ -88,6 +89,15 @@ ui.me = { name: playerName, username: session.profile.username, sprite: player.s
 document.getElementById('card')!.addEventListener('click', () => ui.openWardrobe(store.st));
 ui.onEquip = (item) => { if (store.act({ t: 'equip', item })) ui.toast(`Đã mặc ${WEARABLES[item].name}`); };
 ui.onUnequip = (slot) => { store.act({ t: 'unequip', slot }); };
+document.getElementById('gear')!.addEventListener('click', () => ui.openSettings());
+const fpsEl = document.getElementById('fpsc') as HTMLElement;
+ui.onSetting = (k, v) => {
+  (settings as unknown as Record<string, unknown>)[k] = v;
+  saveSettings();
+  if (k === 'quality') resize();
+  if (k === 'showFps') fpsEl.hidden = !settings.showFps;
+};
+fpsEl.hidden = !settings.showFps;
 ui.onLogout = () => { if (confirm(`Đăng xuất tài khoản ${session.profile.username}?`)) logout(); };
 ui.onBuy = (crop, n) => { if (store.act({ t: 'buy', crop, n })) ui.toast(`Đã mua ${n} hạt ${CROPS[crop].name}`); };
 ui.onBuyItem = (item, n) => { if (store.act({ t: 'buyItem', item, n })) ui.toast(`Đã mua ${n} ${SUPPLIES[item].name}`); };
@@ -178,7 +188,7 @@ const zinBtn = document.getElementById('zin') as HTMLButtonElement;
 const zoutBtn = document.getElementById('zout') as HTMLButtonElement;
 
 function resize() {
-  dpr = Math.min(window.devicePixelRatio || 1, 3);
+  dpr = Math.min(window.devicePixelRatio || 1, dprCap());
   const [lw, lh] = updateOrientation();
   const w = Math.round(lw * dpr), h = Math.round(lh * dpr);
   canvas.width = w; canvas.height = h;
@@ -599,8 +609,10 @@ function render(time: number) {
       const i = k.indexOf(',');
       const [bx, by, bc] = plotRect(+k.slice(0, i), +k.slice(i + 1));
       if (bx < camX - 40 || bx > camX + vw + 40 || by < camY - 40 || by > camY + vh + 40) continue;
+      if (!settings.cropBars && !hasPests(p, now)) continue;
       const ripe = p.s >= RIPE, pest = hasPests(p, now), dry = !p.w && !ripe;
       // status bar above the plant
+      if (settings.cropBars) {
       const bw = bc - 6, bxx = bx + 3, byy = by - 6;
       ctx.fillStyle = 'rgba(30,18,8,0.65)';
       roundRect(bxx - 0.5, byy - 0.5, bw + 1, 3.5, 1.5); ctx.fill();
@@ -625,6 +637,7 @@ function render(time: number) {
       if (p.f) {
         ctx.fillStyle = '#6fbf3f';
         ctx.beginPath(); ctx.ellipse(mx, my, 2.4, 1.4, -0.6, 0, Math.PI * 2); ctx.fill();
+      }
       }
       // bugs crawling on infested plants
       if (pest) {
@@ -708,7 +721,7 @@ function render(time: number) {
     }
   }
   // name tag above the player's head
-  {
+  if (settings.nameTag) {
     ctx.font = 'bold 6px system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
@@ -719,9 +732,9 @@ function render(time: number) {
     ctx.fillStyle = '#fff6dc';
     ctx.fillText(playerName, tx, ty);
   }
-  fx.drawAir(ctx, ts, camX, camY, vw, vh);
+  if (settings.ambientFx) fx.drawAir(ctx, ts, camX, camY, vw, vh);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  weather.draw(ctx, canvas.width, canvas.height, frameDt, dpr);
+  if (settings.weatherFx) weather.draw(ctx, canvas.width, canvas.height, frameDt, dpr);
   drawScreenLight(ctx, canvas.width, canvas.height, ts, weather.sun);
 }
 
@@ -729,15 +742,19 @@ function render(time: number) {
 let last = performance.now();
 let frameDt = 0;
 updateCamera(0, true);
+let fpsN = 0, fpsT = 0;
 function frame(t: number) {
+  requestAnimationFrame(frame);
+  // 30 FPS mode: skip every other display refresh
+  if (settings.fps === 30 && t - last < 1000 / 30 - 4) return;
   const dt = Math.min(0.05, (t - last) / 1000);
   last = t;
+  if (settings.showFps && (fpsN++, fpsT || (fpsT = t), t - fpsT > 500)) { fpsEl.textContent = Math.round(fpsN * 1000 / (t - fpsT)) + ' FPS'; fpsN = 0; fpsT = t; }
   update(dt);
   fx.update(dt);
   weather.update(dt, store.now());
   fx.rainK = weather.rain;
   frameDt = dt;
   render(t);
-  requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
