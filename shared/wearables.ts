@@ -2,6 +2,10 @@
 import type { Wearable } from './rules.ts';
 
 export const OUTFIT_WEARABLES: Record<string, Wearable> = {
+  tee_white_f: { name: 'Áo thun trắng', slot: 'shirt', icon: 'wri_tee_white_f', gender: 'f', default: true },
+  shorts_denim_f: { name: 'Quần short jean', slot: 'pants', icon: 'wri_shorts_denim_f', gender: 'f', default: true },
+  tee_white_m: { name: 'Áo thun trắng', slot: 'shirt', icon: 'wri_tee_white_m', gender: 'm', default: true },
+  shorts_denim_m: { name: 'Quần short jean', slot: 'pants', icon: 'wri_shorts_denim_m', gender: 'm', default: true },
   shirt_plaid_blue_f: { name: 'Sơ mi caro xanh dương', slot: 'shirt', icon: 'wri_shirt_plaid_blue_f', gender: 'f', price: 60 },
   shirt_plaid_pink_f: { name: 'Sơ mi caro hồng', slot: 'shirt', icon: 'wri_shirt_plaid_pink_f', gender: 'f', price: 60 },
   shirt_plaid_green_f: { name: 'Sơ mi caro xanh lá', slot: 'shirt', icon: 'wri_shirt_plaid_green_f', gender: 'f', price: 60 },

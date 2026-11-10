@@ -56,7 +56,9 @@ export const WEAR_SLOTS: { id: string; name: string }[] = [
   { id: 'shoes', name: 'Giày' },
   { id: 'acc', name: 'Phụ kiện' },
 ];
-export interface Wearable { name: string; slot: string; icon: string; gender?: 'm' | 'f'; price?: number }
+export interface Wearable { name: string; slot: string; icon: string; gender?: 'm' | 'f'; price?: number; default?: boolean }
+/** Owned: bought, or a default item every character has (its starting T-shirt / shorts). */
+export const ownsWear = (st: FarmState, id: string) => !!(WEARABLES[id]?.default || st.inv['wear:' + id]);
 /** Clothing catalog (icon = atlas frame name), players own items as
  *  inv['wear:<id>']. Outfits made with PixelLab come from shared/wearables.ts
  *  (generated from assets/source/wear/outfits.json by tools/wear_cut.py). */
@@ -310,7 +312,7 @@ export function applyAction(
   } else if (a.t === 'equip') {
     const def = WEARABLES[a.item];
     if (!def) return 'Không có món đồ này';
-    if (!st.inv['wear:' + a.item]) return 'Bạn chưa có món đồ này';
+    if (!ownsWear(st, a.item)) return 'Bạn chưa có món đồ này';
     (st.wear ||= {})[def.slot] = a.item;
   } else if (a.t === 'unequip') {
     if (!st.wear || !st.wear[a.slot]) return 'Ô này đang trống';

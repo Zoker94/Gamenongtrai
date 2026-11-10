@@ -1,4 +1,14 @@
 {
+  "outfit_default_f": {
+    "base": "char_f", "default": true,
+    "upper": {"id": "tee_white_f", "name": "Áo thun trắng"},
+    "lower": {"id": "shorts_denim_f", "name": "Quần short jean"}
+  },
+  "outfit_default_m": {
+    "base": "char2", "default": true,
+    "upper": {"id": "tee_white_m", "name": "Áo thun trắng"},
+    "lower": {"id": "shorts_denim_m", "name": "Quần short jean"}
+  },
   "outfit_plaid_f": {
     "base": "char_f", "pixellab": "f68acca9-72f1-4594-8f4a-23dab846ffb9",
     "upper": {"id": "shirt_plaid_blue_f", "name": "Sơ mi caro xanh dương", "price": 60, "variants": [

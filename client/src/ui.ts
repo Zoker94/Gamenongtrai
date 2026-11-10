@@ -1,4 +1,4 @@
-import { CROPS, CROP_IDS, SUPPLIES, WEAR_SLOTS, WEARABLES, needsAt, restMinutes, type FarmState } from '../../shared/rules.ts';
+import { CROPS, CROP_IDS, SUPPLIES, WEAR_SLOTS, WEARABLES, needsAt, ownsWear, restMinutes, type FarmState } from '../../shared/rules.ts';
 import { type Atlas, iconCanvas } from './atlas.ts';
 import { type Settings, settings } from './settings.ts';
 import { wearFrame } from './wear.ts';
@@ -296,7 +296,7 @@ export class UI {
       + bar('Khát', nd.t, ['Đủ nước', 'Hơi khát', 'Khát', 'Rất khát'], 'thirst')
       + bar('Mệt mỏi', nd.f, nd.x ? Array(4).fill('Kiệt sức') as [string, string, string, string]
         : ['Khỏe khoắn', 'Hơi mệt', 'Mệt', 'Rất mệt'], 'tired' + (nd.x ? ' bad' : ''));
-    const owned = Object.keys(WEARABLES).filter((id) => st.inv['wear:' + id] && (!WEARABLES[id].gender || WEARABLES[id].gender === me.gender));
+    const owned = Object.keys(WEARABLES).filter((id) => ownsWear(st, id) && (!WEARABLES[id].gender || WEARABLES[id].gender === me.gender));
     const items = owned.length
       ? owned.map((id) => {
           const d = WEARABLES[id], on = wear[d.slot] === id;
